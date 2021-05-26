@@ -35,6 +35,42 @@ fn main() {
 
     println!("{:?}", parse_natural_numbers.parse("23"));
 
-    let deneme = Parser::new(match_literal("1")).zero_or_more().zero_or_more();
-    println!("{:?}", deneme.parse("11111123"));
+    let parse_ones = Parser::new(match_literal("1")).zero_or_more();
+    println!("{:?}", parse_ones.parse("11111123"));
+
+    let parse_twos = Parser::new(match_literal("2")).zero_or_more();
+    println!("{:?}", parse_twos.clone().parse("11111122"));
+
+    let parse_ones_then_twos = parse_ones.clone().pair(parse_twos.clone());
+    println!("{:?}", parse_ones_then_twos.parse("11111122"));
+
+    let parse_ones_then_twos_first = parse_ones.clone().pair(parse_twos.clone()).first();
+    println!("{:?}", parse_ones_then_twos_first.parse("11111122"));
+
+    let parse_ones_then_twos_second = parse_ones.pair(parse_twos).second();
+    println!("{:?}", parse_ones_then_twos_second.parse("11111122"));
+
+    // let any_parser = move|input : &str|
+    // {
+    //     match input.chars().next() {
+            
+    //         Some(next) =>
+    //         {
+    //             //let res = &input[next.len_utf8()..];
+    //             (Ok(next),"")
+    //         }
+    //         _ => {(Err("error"), input)},
+    //     }
+        
+    // };
+
+    let any_parser = Parser::new( any);
+}
+
+type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
+pub fn any(input: &str) -> ParseResult<&str, char> {
+    match input.chars().next() {
+        Some(next) => (Ok(next), &input[next.len_utf8()..]),
+        _ => (Err("error"), input),
+    }
 }
