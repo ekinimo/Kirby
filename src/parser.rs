@@ -10,7 +10,7 @@ type ParseResult<'a,Input, Output> = (Result< Output, &'a str >, Input);
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
 // }
 
-pub trait Parse<'a, Input : Debug + Clone+  'a ,Output: Debug + >  {
+pub trait Parse<'a, Input : Debug + Clone+  'a ,Output: Debug + Clone>  {
     fn parse(&self, input:  Input) -> ParseResult<'a,Input, Output>;
     fn transform<TransformFunction, Output2: Debug>(
         self,
@@ -18,8 +18,8 @@ pub trait Parse<'a, Input : Debug + Clone+  'a ,Output: Debug + >  {
     ) -> Parser<'a,Input, Output2>
     where
         Self: Sized + 'a + ,
-        Output: 'a + ,
-        Output2: 'a + ,
+        Output: 'a + Clone,
+        Output2: 'a + Clone,
         TransformFunction: Fn(Output) -> Output2 +   'a,
     {
         Parser::new(transform(self, transfomfunc))
@@ -36,9 +36,9 @@ pub trait Parse<'a, Input : Debug + Clone+  'a ,Output: Debug + >  {
     fn and_then<F, NextParser, Output2>(self, f: F) -> Parser<'a, Input,Output2>
     where
         Self: Sized + 'a  ,
-        Output: 'a + Debug  ,
-        Output2: 'a + Debug  ,
-        NextParser: Parse<'a,Input, Output2> + 'a  ,
+        Output: 'a + Debug + Clone  ,
+        Output2: 'a + Debug + Clone ,
+        NextParser: Parse<'a,Input, Output2> + 'a + Clone ,
         F: Fn(Output) -> NextParser + 'a ,
     {
         Parser::new(and_then(self, f))
@@ -54,12 +54,12 @@ pub trait Parse<'a, Input : Debug + Clone+  'a ,Output: Debug + >  {
     }
 }
 
-#[derive()]
+#[derive(Clone)]
 pub struct Parser<'a, Input :   Debug + 'a,T:   Debug>  {
     parser: Rc<dyn Parse<'a,Input, T>+'a>,
 }
 
-impl<'a, Input: Debug + Clone+'a,T:   Debug> Parser<'a,Input, T> {
+impl<'a, Input: Debug + Clone+'a,T:   Debug + Clone> Parser<'a,Input, T> {
     pub fn new<P >(parser:  P) -> Self
     where
         P: Parse<'a,Input, T> + 'a,
@@ -74,13 +74,13 @@ impl<'a, Input: Debug + Clone+'a,T:   Debug> Parser<'a,Input, T> {
 
 
 
-impl<'a, Input:Debug+Clone+'a,T> Parse<'a, Input,T> for Parser<'a,Input, T> where T: Debug +  {
+impl<'a, Input:Debug+Clone+'a,T> Parse<'a, Input,T> for Parser<'a,Input, T> where T: Debug + Clone  {
     fn parse(&self, input:  Input) -> ParseResult<'a,Input, T> {
         self.parser.parse(input)
     }
 }
 
-impl<'a, Function,Input : Debug +Clone+   'a, Output: Debug + > Parse<'a, Input,Output> for Function
+impl<'a, Function,Input : Debug +Clone+   'a, Output: Debug + Clone > Parse<'a, Input,Output> for Function
 where
     Function: Fn(Input) -> ParseResult<'a,Input,Output> ,
 {
@@ -139,7 +139,7 @@ fn match_literal_test_5() {
     assert_eq!(result, (Err("error"),"00012345"))
 }
 
-pub fn one_or_more<'a, Parser1, Result1: Debug + >(
+pub fn one_or_more<'a, Parser1 , Result1: Debug + Clone >(
     parser: Parser1,
 ) -> impl Parse<'a,&'a str, Vec<Result1>>
 where
@@ -216,7 +216,7 @@ fn one_or_more_test_3() {
     assert_eq!((Err("error"),input), result)
 }
 
-pub fn zero_or_more<'a, Parser1, Result1: Debug + >(
+pub fn zero_or_more<'a, Parser1, Result1: Debug + Clone>(
     parser: Parser1,
 ) -> impl Parse<'a,&'a str, Vec<Result1>>
 where
@@ -275,12 +275,12 @@ fn zero_or_more_test_3() {
     assert_eq!((Ok(vec![]),"222"), result)
 }
 
-pub fn transform<'a, Parser, TransformFunction, Input: Debug +Clone+ 'a, Output1: Debug , Output2: Debug  >(
+pub fn transform<'a, Parser, TransformFunction, Input: Debug +Clone+ 'a, Output1: Debug + Clone , Output2: Debug + Clone >(
     parser: Parser,
     transfomfunc: TransformFunction,
 ) -> impl Parse<'a,Input, Output2>
 where
-    Parser: Parse<'a,Input, Output1> + 'a ,
+    Parser: Parse<'a,Input, Output1> + 'a  ,
     TransformFunction: Fn(Output1) -> Output2 ,
 {
     move |input| {
@@ -309,7 +309,7 @@ fn transform_0() {
     assert_eq!(expected, result)
 }
 
-pub fn predicate<'a, Parser1, Input: Debug + Clone +'a, Result1: Debug , PredicateFunction>(
+pub fn predicate<'a, Parser1, Input: Debug + Clone +'a, Result1: Debug + Clone, PredicateFunction>(
     parser: Parser1  ,
     predicate: PredicateFunction,
 ) -> impl Parse<'a,Input, Result1>
@@ -349,7 +349,7 @@ fn predicate_0() {
     assert_eq!(expected, result)
 }
 
-fn and_then<'a,Input: Debug + Clone +'a, P, F, A: Debug , B: Debug , NextP>(
+fn and_then<'a,Input: Debug + Clone +'a, P, F, A: Debug+Clone , B: Debug + Clone , NextP>(
     parser: P,
     f: F,
 ) -> impl Parse<'a,Input, B>
@@ -375,7 +375,7 @@ fn and_then_0() {
     assert_eq!(expected, result)
 }
 
-pub fn or_else<'a, Parser1, Input: Debug + Clone +'a,Result1: Debug + >(
+pub fn or_else<'a, Parser1, Input: Debug + Clone +'a,Result1: Debug + Clone >(
     parser1: Parser1,
     parser2: Parser1,
 ) -> impl Parse<'a, Input,Result1>
@@ -426,7 +426,7 @@ fn any(input: &str) -> ParseResult<&str,char> {
 //     digit /float /integer /id / whitespace / newline
 //     somehow put constructors into Parser object like Parser::any(..) etc.
 
-pub fn pair<'a, Parser1, Parser2, Input: Debug + Clone +'a,Result1: Debug , Result2: Debug + >(
+pub fn pair<'a, Parser1, Parser2, Input: Debug + Clone +'a,Result1: Debug + Clone , Result2: Debug  +Clone >(
     parser1: Parser1,
     parser2: Parser2,
 ) -> impl Parse<'a,Input, Rc<(Result1, Result2)>>
