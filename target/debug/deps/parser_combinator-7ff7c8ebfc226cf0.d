@@ -5,4 +5,4 @@
 src/main.rs:
 src/parser.rs:
 
-# env-dep:CLIPPY_ARGS=--no-deps__CLIPPY_HACKERY__
+# env-dep:CLIPPY_ARGS=

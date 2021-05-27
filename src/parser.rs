@@ -7,7 +7,7 @@ type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
 // }
 
-pub trait Parse<'a, Input: Debug + Clone + 'a, Output: Debug + Clone > {
+pub trait Parse<'a, Input: Debug + Clone + Copy+'a, Output: Debug + Clone > {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output>;
     fn transform<TransformFunction, Output2: Debug>(
         self,
@@ -91,12 +91,12 @@ pub struct Pair<'a, Input: Debug + 'a, T1: Debug, T2: Debug> {
 impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a> Debug
     for Pair<'a, Input, T1, T2>
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
 
-impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a>
+impl<'a, Input: Debug + Clone + Copy +'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a>
     Pair<'a, Input, T1, T2>
 {
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
@@ -133,7 +133,7 @@ impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 
     }
 }
 
-impl<'a, Input: Debug + Clone + 'a, T1, T2> Parse<'a, Input, (T1, T2)> for Pair<'a, Input, T1, T2>
+impl<'a, Input: Copy + Debug + Clone + 'a, T1, T2> Parse<'a, Input, (T1, T2)> for Pair<'a, Input, T1, T2>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
@@ -143,7 +143,7 @@ where
     }
 }
 
-impl<'a, Input: Debug + Clone + 'a, T: Debug + Clone> Parser<'a, Input, T> {
+impl<'a, Input: Copy + Debug + Clone + 'a, T: Debug + Clone> Parser<'a, Input, T> {
     pub fn new<P>(parser: P) -> Self
     where
         P: Parse<'a, Input, T> + 'a,
@@ -154,7 +154,7 @@ impl<'a, Input: Debug + Clone + 'a, T: Debug + Clone> Parser<'a, Input, T> {
     }
 }
 
-impl<'a, Input: Debug + Clone + 'a, T> Parse<'a, Input, T> for Parser<'a, Input, T>
+impl<'a, Input: Copy + Debug + Clone + 'a, T> Parse<'a, Input, T> for Parser<'a, Input, T>
 where
     T: Debug + Clone,
 {
@@ -164,7 +164,7 @@ where
 }
 
 impl<'a, Function,
-     Input: Debug + Clone + 'a,
+     Input: Copy + Debug + Clone + 'a,
      Output: Debug + Clone + 'a> 
 
     Parse<'a, Input, Output> for Function
@@ -225,7 +225,7 @@ fn match_literal_test_5() {
     assert_eq!(result, (Err("error"), "00012345"))
 }
 
-pub fn one_or_more<'a, Parser1, Input: Debug + Clone + 'a, Result1: Debug + Clone + 'a>(
+pub fn one_or_more<'a, Parser1, Input: Copy + Debug + Clone + 'a, Result1: Debug + Clone + 'a>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
@@ -234,14 +234,14 @@ where
     move |mut input: Input| {
         let mut result = Vec::new();
 
-        if let (Ok(first_item), next_input) = parser.parse(input.clone()) {
+        if let (Ok(first_item), next_input) = parser.parse(input) {
             input = next_input;
             result.push(first_item);
         } else {
             return (Err("error"), input);
         }
 
-        while let (Ok(next_item), next_input) = parser.parse(input.clone()) {
+        while let (Ok(next_item), next_input) = parser.parse(input) {
             input = next_input;
             result.push(next_item);
         }
@@ -305,7 +305,7 @@ fn one_or_more_test_3() {
     assert_eq!((Err("error"), input), result)
 }
 
-pub fn zero_or_more<'a, Parser1, Input: Debug + Clone + 'a, Result1: Debug + Clone + 'a>(
+pub fn zero_or_more<'a, Parser1, Input: Copy + Debug + Clone + 'a , Result1: Debug + Clone + 'a>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
@@ -314,7 +314,7 @@ where
     move |mut input: Input| {
         let mut result = Vec::new();
 
-        while let (Ok(next_item), next_input) = parser.parse(input.clone()) {
+        while let (Ok(next_item), next_input) = parser.parse(input) {
             input = next_input;
             result.push(next_item);
         }
@@ -372,7 +372,7 @@ pub fn transform<
     'a,
     Parser,
     TransformFunction,
-    Input: Debug + Clone + 'a,
+    Input: Copy + Debug + Clone + 'a,
     Output1: Debug + Clone,
     Output2: Debug + Clone + 'a,
 >(
@@ -412,7 +412,7 @@ fn transform_0() {
 pub fn predicate<
     'a,
     Parser1,
-    Input: Debug + Clone + 'a,
+    Input: Copy + Debug + Clone + 'a,
     Result1: Debug + Clone + 'a,
     PredicateFunction,
 >(
@@ -424,7 +424,7 @@ where
     PredicateFunction: Fn(&Result1) -> bool + 'a,
 {
     move |input: Input| {
-        let input_ = input.clone();
+        let _input_ = input.clone();
         if let (Ok(value), next_input) = parser.parse(input.clone()) {
             if predicate(&value) {
                 return (Ok(value), next_input);
@@ -454,7 +454,7 @@ fn predicate_0() {
     assert_eq!(expected, result)
 }
 
-fn and_then<'a, Input: Debug + Clone + 'a, P, F, A: Debug + Clone, B: Debug + Clone + 'a, NextP>(
+fn and_then<'a, Input: Copy + Debug + Clone + 'a, P, F, A: Debug + Clone, B: Debug + Clone + 'a, NextP>(
     parser: P,
     f: F,
 ) -> impl Parse<'a, Input, B>
@@ -480,14 +480,14 @@ fn and_then_0() {
     assert_eq!(expected, result)
 }
 
-pub fn or_else<'a, Parser1, Input: Debug + Clone + 'a, Result1: Debug + Clone + 'a>(
+pub fn or_else<'a,'b, Parser1, Input: Copy +Debug + Clone +'a , Result1: Debug + Clone + 'a>(
     parser1: Parser1,
     parser2: Parser1,
 ) -> impl Parse<'a, Input, Result1>
 where
-    Parser1: Parse<'a, Input, Result1>,
+    Parser1: Parse<'a, Input, Result1> + 'a,
 {
-    move |input: Input| match parser1.parse(input.clone()) {
+    move |input: Input| match parser1.parse(input) {
         res @ (Ok(_), _) => res,
         (Err(_), _) => parser2.parse(input),
     }

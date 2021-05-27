@@ -1,4 +1,4 @@
-use parser::{match_literal, one_or_more, zero_or_more, Parse, Parser};
+use parser::{match_literal, Parse, Parser};
 
 mod parser;
 
@@ -50,27 +50,37 @@ fn main() {
     let parse_ones_then_twos_second = parse_ones.pair(parse_twos).second();
     println!("{:?}", parse_ones_then_twos_second.parse("11111122"));
 
-    // let any_parser = move|input : &str|
-    // {
-    //     match input.chars().next() {
-            
-    //         Some(next) =>
-    //         {
-    //             //let res = &input[next.len_utf8()..];
-    //             (Ok(next),"")
-    //         }
-    //         _ => {(Err("error"), input)},
-    //     }
-        
-    // };
+     // let any = move|input : &str| ->ParseResult<&str,char>
+     // {
+     //     match input.chars().next() {
+          
+     //         Some(next) =>
+     //         {
+     //             let res = &input[next.len_utf8()..];
+     //             (Ok(next),res)
+     //         }
+     //         _ => {(Err("error"), input)},
+     //     }
+      
+     // };
 
-    let any_parser = Parser::new( any);
+    let _deneme = |x : String| {x};
+    let _any_parser = Parser::new( any);
+
+    for i in "hello".as_bytes().iter() { println!("{}",i)};
+
+    
+    let parse_digits_one_or_more =parse_digit.clone().pair(parse_digit.zero_or_more()).transform(|(head, mut tail)| {
+                tail.insert(0, head);
+                tail});
+    println!("{:?}", parse_digits_one_or_more.parse("a11111122"));
+
 }
 
 type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-pub fn any(input: &str) -> ParseResult<&str, char> {
-    match input.chars().next() {
-        Some(next) => (Ok(next), &input[next.len_utf8()..]),
-        _ => (Err("error"), input),
-    }
-}
+  pub fn any(input: &str) -> ParseResult<&str, char> {
+      match input.chars().next() {
+          Some(next) => (Ok(next), &input[next.len_utf8()..]),
+          _ => (Err("error"), input),
+      }
+  }
