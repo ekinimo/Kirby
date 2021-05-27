@@ -60,6 +60,16 @@ pub trait Parse<'a, Input: Debug + Clone + 'a, Output: Debug + Clone > {
         Pair::new(self, parser2)
     }
 
+    fn either<Parser1, Output2>(self, parser2: Parser1) -> Either<'a, Input, Output, Output2>
+    where
+        Self: Sized + 'a,
+        Output: Debug + Clone + 'a,
+        Output2: Debug + Clone + 'a,
+        Parser1: Parse<'a, Input, Output2> + 'a,
+    {
+        Either::new(self, parser2)
+    }
+
     fn zero_or_more(self) -> Parser<'a, Input, Vec<Output>>
     where
         Self: Sized + 'a,
@@ -98,6 +108,56 @@ where
     Left(T1),
     Right(T2),
 }
+
+impl<T1, T2> EitherType<T1, T2>
+where
+    T1: Debug + Clone ,
+    T2: Debug + Clone
+{
+    /// Returns `true` if the either_type is [`Left`].
+    pub fn is_left(&self) -> bool {
+        matches!(self, Self::Left(..))
+    }
+
+    
+    pub fn as_left(&self) -> Option<T1> {
+        if let Self::Left(v) = self {
+            Some(v.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the either_type is [`Right`].
+    pub fn is_right(&self) -> bool {
+        matches!(self, Self::Right(..))
+    }
+
+    pub fn as_right(&self) -> Option<T2> {
+        if let Self::Right(v) = self {
+            Some(v.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn try_into_left(self) -> Result<T1, Self> {
+        if let Self::Left(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn try_into_right(self) -> Result<T2, Self> {
+        if let Self::Right(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+}
+
 
 #[derive(Clone)]
 pub struct Either<'a, Input: Debug + 'a, T1: Debug + Clone, T2: Debug + Clone> {
@@ -156,8 +216,8 @@ impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 
     }
 }
 
-impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a>
-    Either<'a, Input, T1, T2>
+impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a >
+    Either<'a, Input, T1  , T2 >
 {
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
     where
@@ -181,6 +241,29 @@ impl<'a, Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 
                 ),
         }
     }
+    pub fn try_left(self) -> Parser<'a, Input, Result<T1,EitherType<T1,T2>>> {
+        self.transform(|x| x.try_into_left())
+    }
+
+    pub fn try_right(self) -> Parser<'a, Input, Result<T2,EitherType<T1,T2>>> {
+        self.transform(|x| x.try_into_right())
+    }
+    pub fn as_left(self) -> Parser<'a, Input, Option<T1>> {
+        self.transform(|x| x.as_left())
+    }
+
+    pub fn as_right(self) -> Parser<'a, Input, Option<T2>> {
+        Parser::new(transform(self.clone(), |y| y.as_right()))
+    }
+
+    pub fn is_left(self) -> Parser<'a, Input, bool> {
+        self.transform(|x| x.is_left())
+    }
+
+    pub fn is_right(self) -> Parser<'a, Input, bool> {
+        Parser::new(transform(self.clone(), |y| y.is_right()))
+    }
+    
 }
 
 
@@ -329,14 +412,14 @@ fn one_or_more_test_1() {
     let result = parser.parse(input);
 
     assert_eq!(should, result);
-
-    let parser = Parser::new(move |input: &'static str| match input.chars().next() {
+    let fun = &|input: &'static str| match input.chars().next() {
         Some(next) => {
             let rest = &input[next.len_utf8()..];
             Ok((next, rest))
         }
         _ => Err(input),
-    });
+    };
+    let parser = Parser::new(fun);
     let result = parser.parse("1");
     let should = Ok(('1', ""));
     assert_eq!(should, result)
@@ -578,7 +661,7 @@ fn or_else_0() {
     assert_eq!(expected, result)
 }
 
-pub fn any(input: &str) -> ParseResult<&str, char> {
+ fn any(input: &str) -> ParseResult<&str, char> {
     match input.chars().next() {
         Some(next) => Ok((next, &input[next.len_utf8()..])),
         _ => Err("error"),

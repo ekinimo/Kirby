@@ -50,7 +50,7 @@ fn main() {
     let parse_ones_then_twos_second = parse_ones.pair(parse_twos).second();
     println!("{:?}", parse_ones_then_twos_second.parse("11111122"));
 
-     let any= move|input : &'static str|
+     let any_fn=  |input : &str|
      {
          match input.chars().next() {
           
@@ -64,7 +64,9 @@ fn main() {
       
      };
 
-    let any_parser = Parser::new( any);
+    let any_parser = Parser::new( any_fn);
+    
+
 }
 
 // type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
