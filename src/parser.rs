@@ -1,15 +1,18 @@
 use std::{fmt::Debug, fs::read_to_string, rc::Rc};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-type ParseResult< Input, Output> = Result<(Output, Input), String>;
+type ParseResult<Input, Output> = Result<(Output, Input), String>;
 //Core
 // pub trait Parse<'a, Output >   {
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
 // }
 
-
 #[derive(Clone)]
-pub struct Parser<'a, Input, T> where Input: Debug + 'a, T: Debug {
+pub struct Parser<'a, Input, T>
+where
+    Input: Debug + 'a,
+    T: Debug,
+{
     parser: Rc<dyn Parse<'a, Input, T> + 'a>,
 }
 
@@ -19,7 +22,12 @@ pub struct Pair<'a, Input: Debug + 'a, T1: Debug, T2: Debug> {
 }
 
 #[derive(Clone)]
-pub struct Either<'a, Input, T1, T2> where Input: Debug + 'a, T1: Debug + Clone, T2: Debug + Clone {
+pub struct Either<'a, Input, T1, T2>
+where
+    Input: Debug + 'a,
+    T1: Debug + Clone,
+    T2: Debug + Clone,
+{
     parser: Rc<dyn Parse<'a, Input, EitherType<T1, T2>> + 'a>,
 }
 
@@ -33,12 +41,12 @@ where
     Right(T2),
 }
 
-
-
-
-
-pub trait Parse<'a, Input, Output> where Input: Debug + Clone + 'a, Output: Debug + Clone {
-    fn parse(&self, input: Input) -> ParseResult< Input, Output>;
+pub trait Parse<'a, Input, Output>
+where
+    Input: Debug + Clone + 'a,
+    Output: Debug + Clone,
+{
+    fn parse(&self, input: Input) -> ParseResult<Input, Output>;
     fn transform<TransformFunction, Output2: Debug>(
         self,
         transfomfunc: TransformFunction,
@@ -71,7 +79,10 @@ pub trait Parse<'a, Input, Output> where Input: Debug + Clone + 'a, Output: Debu
         })
     }
 
-    fn new_parser_from_parse_result<F, NextParser, Output2>(self, f: F) -> Parser<'a, Input, Output2>
+    fn new_parser_from_parse_result<F, NextParser, Output2>(
+        self,
+        f: F,
+    ) -> Parser<'a, Input, Output2>
     where
         Self: Sized + 'a,
         Output: 'a + Debug + Clone,
@@ -79,13 +90,10 @@ pub trait Parse<'a, Input, Output> where Input: Debug + Clone + 'a, Output: Debu
         NextParser: Parse<'a, Input, Output2> + 'a + Clone,
         F: Fn(Output) -> NextParser + 'a,
     {
-        Parser::new(
-
-            move |input| match self.parse(input) {
-                Ok((result, next_input)) => f(result).parse(next_input),
-                Err(err) => Err(err),
-            })
-
+        Parser::new(move |input| match self.parse(input) {
+            Ok((result, next_input)) => f(result).parse(next_input),
+            Err(err) => Err(err),
+        })
     }
 
     fn or_else<Parser1>(self, parser2: Self) -> Parser<'a, Input, Output>
@@ -94,11 +102,10 @@ pub trait Parse<'a, Input, Output> where Input: Debug + Clone + 'a, Output: Debu
         Output: 'a + Debug,
         Parser1: Parse<'a, Input, Output>,
     {
-        Parser::new(
-            move |input: Input| match self.parse(input.clone()) {
-                res @ Ok(_) => res,
-                Err(_) => parser2.parse(input),
-            })
+        Parser::new(move |input: Input| match self.parse(input.clone()) {
+            res @ Ok(_) => res,
+            Err(_) => parser2.parse(input),
+        })
     }
 
     fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2>
@@ -139,12 +146,13 @@ pub trait Parse<'a, Input, Output> where Input: Debug + Clone + 'a, Output: Debu
     }
 }
 
-
 pub fn one_or_more<'a, Parser1, Input, Result1>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
-    Parser1: Parse<'a, Input, Result1>, Input: Debug + Clone + 'a, Result1: Debug + Clone + 'a
+    Parser1: Parse<'a, Input, Result1>,
+    Input: Debug + Clone + 'a,
+    Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
         let mut result = Vec::new();
@@ -169,7 +177,9 @@ pub fn zero_or_more<'a, Parser1, Input, Result1>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
-    Parser1: Parse<'a, Input, Result1>, Input: Debug + Clone + 'a, Result1: Debug + Clone + 'a
+    Parser1: Parse<'a, Input, Result1>,
+    Input: Debug + Clone + 'a,
+    Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
         let mut result = Vec::new();
@@ -182,7 +192,6 @@ where
         Ok((result, input))
     }
 }
-
 
 impl<T1, T2> EitherType<T1, T2>
 where
@@ -232,25 +241,33 @@ where
     }
 }
 
-
-impl<'a, Input, T1, T2> Debug
-    for Pair<'a, Input, T1, T2>
-where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a {
+impl<'a, Input, T1, T2> Debug for Pair<'a, Input, T1, T2>
+where
+    Input: Debug + Clone + 'a,
+    T1: Debug + Clone + 'a,
+    T2: Debug + Clone + 'a,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
-impl<'a, Input, T1, T2> Debug
-    for Either<'a, Input, T1, T2>
-where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a {
+impl<'a, Input, T1, T2> Debug for Either<'a, Input, T1, T2>
+where
+    Input: Debug + Clone + 'a,
+    T1: Debug + Clone + 'a,
+    T2: Debug + Clone + 'a,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
 
-impl<'a, Input, T1, T2>
-    Pair<'a, Input, T1, T2>
-where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a {
+impl<'a, Input, T1, T2> Pair<'a, Input, T1, T2>
+where
+    Input: Debug + Clone + 'a,
+    T1: Debug + Clone + 'a,
+    T2: Debug + Clone + 'a,
+{
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
     where
         P1: Parse<'a, Input, T1> + 'a,
@@ -285,9 +302,12 @@ where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a 
     }
 }
 
-impl<'a, Input, T1, T2>
-    Either<'a, Input, T1, T2>
-where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a {
+impl<'a, Input, T1, T2> Either<'a, Input, T1, T2>
+where
+    Input: Debug + Clone + 'a,
+    T1: Debug + Clone + 'a,
+    T2: Debug + Clone + 'a,
+{
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
     where
         P1: Parse<'a, Input, T1> + 'a,
@@ -332,25 +352,30 @@ where Input: Debug + Clone + 'a, T1: Debug + Clone + 'a, T2: Debug + Clone + 'a 
 impl<'a, Input, T1, T2> Parse<'a, Input, (T1, T2)> for Pair<'a, Input, T1, T2>
 where
     T1: Debug + Clone,
-    T2: Debug + Clone, Input: Debug + Clone + 'a
+    T2: Debug + Clone,
+    Input: Debug + Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult< Input, (T1, T2)> {
+    fn parse(&self, input: Input) -> ParseResult<Input, (T1, T2)> {
         self.parser.parse(input)
     }
 }
 
-impl<'a, Input, T1, T2> Parse<'a, Input, EitherType<T1, T2>>
-    for Either<'a, Input, T1, T2>
+impl<'a, Input, T1, T2> Parse<'a, Input, EitherType<T1, T2>> for Either<'a, Input, T1, T2>
 where
     T1: Debug + Clone,
-    T2: Debug + Clone, Input: Debug + Clone + 'a
+    T2: Debug + Clone,
+    Input: Debug + Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult< Input, EitherType<T1, T2>> {
+    fn parse(&self, input: Input) -> ParseResult<Input, EitherType<T1, T2>> {
         self.parser.parse(input)
     }
 }
 
-impl<'a, Input, T> Parser<'a, Input, T> where Input: Debug + Clone + 'a, T: Debug + Clone {
+impl<'a, Input, T> Parser<'a, Input, T>
+where
+    Input: Debug + Clone + 'a,
+    T: Debug + Clone,
+{
     pub fn new<P>(parser: P) -> Self
     where
         P: Parse<'a, Input, T> + 'a,
@@ -363,19 +388,21 @@ impl<'a, Input, T> Parser<'a, Input, T> where Input: Debug + Clone + 'a, T: Debu
 
 impl<'a, Input, T> Parse<'a, Input, T> for Parser<'a, Input, T>
 where
-    T: Debug + Clone, Input: Debug + Clone + 'a
+    T: Debug + Clone,
+    Input: Debug + Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult< Input, T> {
+    fn parse(&self, input: Input) -> ParseResult<Input, T> {
         self.parser.parse(input)
     }
 }
 
-impl<'a, Function, Input, Output> Parse<'a, Input, Output>
-    for Function
+impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
 where
-    Function: Fn(Input) -> ParseResult< Input, Output>, Input: Debug + Clone + 'a, Output: Debug + Clone + 'a
+    Function: Fn(Input) -> ParseResult<Input, Output>,
+    Input: Debug + Clone + 'a,
+    Output: Debug + Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult< Input, Output> {
+    fn parse(&self, input: Input) -> ParseResult<Input, Output> {
         self(input)
     }
 }
@@ -484,52 +511,50 @@ fn one_or_more_test_3() {
     assert_eq!(Err("error".to_string()), result)
 }
 
+#[test]
+fn zero_or_more_test_1() {
+    let input = "1111111111111111";
+    let init = match_literal("1");
+    let parser1 = Parser::new(init);
+    let parser = zero_or_more(parser1);
+    let should = Ok((
+        vec![
+            "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
+        ],
+        "",
+    ));
+    let result = parser.parse(input);
 
+    assert_eq!(should, result)
+}
 
- #[test]
- fn zero_or_more_test_1() {
-     let input = "1111111111111111";
-     let init = match_literal("1");
-     let parser1 = Parser::new(init);
-     let parser = zero_or_more(parser1);
-     let should =
-         Ok((vec![
-             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
-         ],
-         ""))
-     ;
-     let result = parser.parse(input);
+// #[test]
+// fn zero_or_more_test_2() {
+//     let input = "1111111111111111222";
+//     let init = match_literal("1");
+//     let parser1 = Parser::new(init);
+//     let parser = zero_or_more(parser1);
+//     let should = (
+//         Ok(vec![
+//             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
+//         ]),
+//         "222",
+//     );
+//     let result = parser.parse(input);
 
-     assert_eq!(should, result)
- }
+//     assert_eq!(should, result)
+// }
 
- // #[test]
- // fn zero_or_more_test_2() {
- //     let input = "1111111111111111222";
- //     let init = match_literal("1");
- //     let parser1 = Parser::new(init);
- //     let parser = zero_or_more(parser1);
- //     let should = (
- //         Ok(vec![
- //             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
- //         ]),
- //         "222",
- //     );
- //     let result = parser.parse(input);
+// #[test]
+// fn zero_or_more_test_3() {
+//     let input = "222";
+//     let init = match_literal("1");
+//     let parser1 = Parser::new(init);
+//     let parser = zero_or_more(parser1);
+//     let result = parser.parse(input);
 
- //     assert_eq!(should, result)
- // }
-
- // #[test]
- // fn zero_or_more_test_3() {
- //     let input = "222";
- //     let init = match_literal("1");
- //     let parser1 = Parser::new(init);
- //     let parser = zero_or_more(parser1);
- //     let result = parser.parse(input);
-
- //     assert_eq!((Ok(vec![]), "222"), result)
- // }
+//     assert_eq!((Ok(vec![]), "222"), result)
+// }
 
 #[test]
 fn transform_0() {
@@ -547,8 +572,6 @@ fn transform_0() {
     let expected = Ok((22, ""));
     assert_eq!(expected, result)
 }
-
-
 
 #[test]
 fn predicate_0() {
@@ -570,7 +593,6 @@ fn predicate_0() {
     assert_eq!(expected, result)
 }
 
-
 #[test]
 fn and_then_0() {
     let input = "223";
@@ -581,7 +603,6 @@ fn and_then_0() {
     let expected = Ok(("2", "3"));
     assert_eq!(expected, result)
 }
-
 
 #[test]
 fn or_else_0() {
