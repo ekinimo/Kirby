@@ -50,23 +50,17 @@ fn main() {
     let parse_ones_then_twos_second = parse_ones.pair(parse_twos).second();
     println!("{:?}", parse_ones_then_twos_second.parse("11111122"));
 
-     let any_fn=  |input : &str|
-     {
-         match input.chars().next() {
-          
-             Some(next) =>
-             {
-                 //let res = &input[next.len_utf8()..];
-                 Ok((next,""))
-             }
-             _ => {Err("error")},
-         }
-      
-     };
+    let any_fn = |input: &str| {
+        match input.chars().next() {
+            Some(next) => {
+                //let res = &input[next.len_utf8()..];
+                Ok((next, ""))
+            }
+            _ => Err("error"),
+        }
+    };
 
-    let any_parser = Parser::new( any_fn);
-    
-
+    let any_parser = Parser::new(any_fn);
 }
 
 // type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
