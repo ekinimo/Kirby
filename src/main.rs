@@ -56,7 +56,7 @@ fn main() {
                 //let res = &input[next.len_utf8()..];
                 Ok((next, ""))
             }
-            _ => Err("error"),
+            _ => Err("error".to_string()),
         }
     };
 
