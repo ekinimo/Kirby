@@ -1,7 +1,7 @@
-use std::{fmt::Debug, fs::read_to_string, rc::Rc};
+use std::{fmt::Debug, fs::read_to_string, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-type ParseResult<Input, Output> = Result<(Output, Input), String>;
+type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 //Core
 // pub trait Parse<'a, Output >   {
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
@@ -10,21 +10,29 @@ type ParseResult<Input, Output> = Result<(Output, Input), String>;
 #[derive(Clone)]
 pub struct Parser<'a, Input, T>
 where
-    Input: Debug + 'a,
+    Input: Debug + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T: Debug,
 {
     parser: Rc<dyn Parse<'a, Input, T> + 'a>,
 }
 
 #[derive(Clone)]
-pub struct Pair<'a, Input: Debug + 'a, T1: Debug, T2: Debug> {
+pub struct Pair<'a, Input, T1, T2>
+where
+    Input: Debug + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
+    T1: Debug,
+    T2: Debug,
+{
     parser: Rc<dyn Parse<'a, Input, (T1, T2)> + 'a>,
 }
 
 #[derive(Clone)]
 pub struct Either<'a, Input, T1, T2>
 where
-    Input: Debug + 'a,
+    Input: Debug + IntoIterator + 'a,
+    <Input as IntoIterator>::Item: Eq,
     T1: Debug + Clone,
     T2: Debug + Clone,
 {
@@ -43,10 +51,11 @@ where
 
 pub trait Parse<'a, Input, Output>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Output: Debug + Clone,
 {
-    fn parse(&self, input: Input) -> ParseResult<Input, Output>;
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output>;
     fn transform<TransformFunction, Output2: Debug>(
         self,
         transfomfunc: TransformFunction,
@@ -70,7 +79,7 @@ where
     {
         Parser::new(move |input: Input| {
             let input_ = input.clone();
-            if let Ok((value, next_input)) = self.parse(input.clone()) {
+            if let Ok((value, next_input)) = self.parse(input) {
                 if pred_fn(&value) {
                     return Ok((value, next_input));
                 }
@@ -151,7 +160,8 @@ pub fn one_or_more<'a, Parser1, Input, Result1>(
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
     Parser1: Parse<'a, Input, Result1>,
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
@@ -178,7 +188,8 @@ pub fn zero_or_more<'a, Parser1, Input, Result1>(
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
     Parser1: Parse<'a, Input, Result1>,
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
@@ -243,7 +254,8 @@ where
 
 impl<'a, Input, T1, T2> Debug for Pair<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -253,7 +265,8 @@ where
 }
 impl<'a, Input, T1, T2> Debug for Either<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -264,7 +277,8 @@ where
 
 impl<'a, Input, T1, T2> Pair<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -304,7 +318,8 @@ where
 
 impl<'a, Input, T1, T2> Either<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -316,7 +331,7 @@ where
         Self {
             parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
                 Ok((left_result, rest)) => Ok((EitherType::Left(left_result), rest)),
-                Err(_) => match parser2.parse(input) {
+                Err(_) => match parser2.parse(input.clone()) {
                     Ok((right_result, remaining)) => {
                         Ok((EitherType::Right(right_result), remaining))
                     }
@@ -353,9 +368,10 @@ impl<'a, Input, T1, T2> Parse<'a, Input, (T1, T2)> for Pair<'a, Input, T1, T2>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
 {
-    fn parse(&self, input: Input) -> ParseResult<Input, (T1, T2)> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, (T1, T2)> {
         self.parser.parse(input)
     }
 }
@@ -364,16 +380,18 @@ impl<'a, Input, T1, T2> Parse<'a, Input, EitherType<T1, T2>> for Either<'a, Inpu
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
 {
-    fn parse(&self, input: Input) -> ParseResult<Input, EitherType<T1, T2>> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, EitherType<T1, T2>> {
         self.parser.parse(input)
     }
 }
 
 impl<'a, Input, T> Parser<'a, Input, T>
 where
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T: Debug + Clone,
 {
     pub fn new<P>(parser: P) -> Self
@@ -389,251 +407,265 @@ where
 impl<'a, Input, T> Parse<'a, Input, T> for Parser<'a, Input, T>
 where
     T: Debug + Clone,
-    Input: Debug + Clone + 'a,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
 {
-    fn parse(&self, input: Input) -> ParseResult<Input, T> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, T> {
         self.parser.parse(input)
     }
 }
 
 impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
 where
-    Function: Fn(Input) -> ParseResult<Input, Output>,
-    Input: Debug + Clone + 'a,
+    Function: for<'r> Fn(Input) -> ParseResult<'a, Input, Output>,
+    Input: Debug + Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Output: Debug + Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<Input, Output> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
         self(input)
     }
 }
 
-pub fn match_literal<'a>(expected: &'a str) -> impl Parse<'a, &str, &str> {
-    move |input: &'a str| match input.get(0..expected.len()) {
-        Some(next) if next == expected => Ok((&input[..expected.len()], &input[expected.len()..])),
-        _ => Err("error".to_string()),
+pub fn match_literal<'a, 'b>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>> {
+    move |input1: Chars<'a>| {
+        let input = input1.clone().collect::<String>();
+        match input.as_str().get(0..expected.len()) {
+            Some(next) if next == expected => {
+                let (x, y) = (
+                    &input1.as_str()[..expected.len()],
+                    &input1.as_str()[expected.len()..],
+                );
+                //Ok((*(&input1.as_str()[..expected.len()].chars().clone()),
+                //    *(&input1.as_str()[expected.len()..].chars().clone())))},
+                Ok((x.chars(), y.chars()))
+            }
+            _ => Err("error".to_string()),
+        }
     }
 }
 
 #[test]
 fn match_literal_test_1() {
     let parser = match_literal("1");
-    let input = "1";
+    let input = "1".chars();
     let result = parser.parse(input);
-
-    assert_eq!(result, Ok(("1", "")))
-}
-
-#[test]
-fn match_literal_test_2() {
-    let parser = match_literal("1");
-    let input = "12";
-    let result = parser.parse(input);
-
-    assert_eq!(result, Ok(("1", "2")))
-}
-
-#[test]
-fn match_literal_test_3() {
-    let parser = match_literal("123");
-    let input = "123";
-    let result = parser.parse(input); //.clone()
-    assert_eq!(result, Ok(("123", "")))
-}
-
-#[test]
-fn match_literal_test_4() {
-    let parser = match_literal("123");
-    let input = "12345";
-    let result = parser.parse(input);
-    assert_eq!(result, Ok(("123", "45")))
-}
-
-#[test]
-fn match_literal_test_5() {
-    let parser = match_literal("123");
-    let input = "00012345";
-    let result = parser.parse(input);
-    assert_eq!(result, Err("error".to_string()))
-}
-
-#[test]
-fn one_or_more_test_1() {
-    let input = "1111111111111111";
-    let init = match_literal("1");
-    let parser1 = Parser::new(init);
-    let parser = one_or_more(parser1);
-    let should = Ok((
-        vec![
-            "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
-        ],
-        "",
-    ));
-    let result = parser.parse(input);
-
-    assert_eq!(should, result);
-    let fun = &|input: &'static str| match input.chars().next() {
-        Some(next) => {
-            let rest = &input[next.len_utf8()..];
-            Ok((next, rest))
-        }
-        _ => Err(input.to_string()),
-    };
-    let parser = Parser::new(fun);
-    let result = parser.parse("1");
-    let should = Ok(('1', ""));
-    assert_eq!(should, result)
-}
-
-#[test]
-fn one_or_more_test_2() {
-    let input = "1111111111111111222";
-    let init = match_literal("1");
-    let parser1 = Parser::new(init);
-    let parser = one_or_more(parser1);
-    let should = Ok((
-        vec![
-            "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
-        ],
-        "222",
-    ));
-    let result = parser.parse(input);
-    assert_eq!(should, result)
-}
-
-#[test]
-fn one_or_more_test_3() {
-    let input = "222";
-    let init = match_literal("1");
-    let parser1 = Parser::new(init);
-    let parser = one_or_more(parser1);
-    let result = parser.parse(input);
-
-    assert_eq!(Err("error".to_string()), result)
-}
-
-#[test]
-fn zero_or_more_test_1() {
-    let input = "1111111111111111";
-    let init = match_literal("1");
-    let parser1 = Parser::new(init);
-    let parser = zero_or_more(parser1);
-    let should = Ok((
-        vec![
-            "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
-        ],
-        "",
-    ));
-    let result = parser.parse(input);
-
-    assert_eq!(should, result)
+    println!("{:?}", result);
+    assert_eq!(1, 0)
+    //assert_eq!(result, Ok(("1".chars(), "".chars())))
 }
 
 // #[test]
-// fn zero_or_more_test_2() {
+// fn match_literal_test_2() {
+//     let parser = match_literal("1");
+//     let input = "12";
+//     let result = parser.parse(input);
+
+//     assert_eq!(result, Ok(("1", "2")))
+// }
+
+// #[test]
+// fn match_literal_test_3() {
+//     let parser = match_literal("123");
+//     let input = "123";
+//     let result = parser.parse(input); //.clone()
+//     assert_eq!(result, Ok(("123", "")))
+// }
+
+// #[test]
+// fn match_literal_test_4() {
+//     let parser = match_literal("123");
+//     let input = "12345";
+//     let result = parser.parse(input);
+//     assert_eq!(result, Ok(("123", "45")))
+// }
+
+// #[test]
+// fn match_literal_test_5() {
+//     let parser = match_literal("123");
+//     let input = "00012345";
+//     let result = parser.parse(input);
+//     assert_eq!(result, Err("error".to_string()))
+// }
+
+// #[test]
+// fn one_or_more_test_1() {
+//     let input = "1111111111111111";
+//     let init = match_literal("1");
+//     let parser1 = Parser::new(init);
+//     let parser = one_or_more(parser1);
+//     let should = Ok((
+//         vec![
+//             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
+//         ],
+//         "",
+//     ));
+//     let result = parser.parse(input);
+
+//     assert_eq!(should, result);
+//     let fun = &|input: &'static str| match input.chars().next() {
+//         Some(next) => {
+//             let rest = &input[next.len_utf8()..];
+//             Ok((next, rest))
+//         }
+//         _ => Err(input.to_string()),
+//     };
+//     let parser = Parser::new(fun);
+//     let result = parser.parse("1");
+//     let should = Ok(('1', ""));
+//     assert_eq!(should, result)
+// }
+
+// #[test]
+// fn one_or_more_test_2() {
 //     let input = "1111111111111111222";
 //     let init = match_literal("1");
 //     let parser1 = Parser::new(init);
-//     let parser = zero_or_more(parser1);
-//     let should = (
-//         Ok(vec![
+//     let parser = one_or_more(parser1);
+//     let should = Ok((
+//         vec![
 //             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
-//         ]),
+//         ],
 //         "222",
-//     );
+//     ));
+//     let result = parser.parse(input);
+//     assert_eq!(should, result)
+// }
+
+// #[test]
+// fn one_or_more_test_3() {
+//     let input = "222";
+//     let init = match_literal("1");
+//     let parser1 = Parser::new(init);
+//     let parser = one_or_more(parser1);
+//     let result = parser.parse(input);
+
+//     assert_eq!(Err("error".to_string()), result)
+// }
+
+// #[test]
+// fn zero_or_more_test_1() {
+//     let input = "1111111111111111";
+//     let init = match_literal("1");
+//     let parser1 = Parser::new(init);
+//     let parser = zero_or_more(parser1);
+//     let should = Ok((
+//         vec![
+//             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
+//         ],
+//         "",
+//     ));
 //     let result = parser.parse(input);
 
 //     assert_eq!(should, result)
 // }
 
-// #[test]
-// fn zero_or_more_test_3() {
-//     let input = "222";
-//     let init = match_literal("1");
-//     let parser1 = Parser::new(init);
-//     let parser = zero_or_more(parser1);
-//     let result = parser.parse(input);
+// // #[test]
+// // fn zero_or_more_test_2() {
+// //     let input = "1111111111111111222";
+// //     let init = match_literal("1");
+// //     let parser1 = Parser::new(init);
+// //     let parser = zero_or_more(parser1);
+// //     let should = (
+// //         Ok(vec![
+// //             "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1",
+// //         ]),
+// //         "222",
+// //     );
+// //     let result = parser.parse(input);
 
-//     assert_eq!((Ok(vec![]), "222"), result)
+// //     assert_eq!(should, result)
+// // }
+
+// // #[test]
+// // fn zero_or_more_test_3() {
+// //     let input = "222";
+// //     let init = match_literal("1");
+// //     let parser1 = Parser::new(init);
+// //     let parser = zero_or_more(parser1);
+// //     let result = parser.parse(input);
+
+// //     assert_eq!((Ok(vec![]), "222"), result)
+// // }
+
+// #[test]
+// fn transform_0() {
+//     let input = "222";
+//     let init = match_literal("2");
+//     let parser1 = Parser::new(init);
+//     let parser = Parser::new(one_or_more(parser1)).transform(|s| {
+//         let mut digits = String::from("");
+//         for digit in s {
+//             digits.push_str(digit);
+//         }
+//         digits.parse::<i32>().unwrap()
+//     });
+//     let result = parser.parse(input);
+//     let expected = Ok((22, ""));
+//     assert_eq!(expected, result)
 // }
 
-#[test]
-fn transform_0() {
-    let input = "222";
-    let init = match_literal("2");
-    let parser1 = Parser::new(init);
-    let parser = Parser::new(one_or_more(parser1)).transform(|s| {
-        let mut digits = String::from("");
-        for digit in s {
-            digits.push_str(digit);
-        }
-        digits.parse::<i32>().unwrap()
-    });
-    let result = parser.parse(input);
-    let expected = Ok((22, ""));
-    assert_eq!(expected, result)
-}
+// #[test]
+// fn predicate_0() {
+//     let input = "222";
+//     let init = match_literal("2");
+//     let parser1 = Parser::new(init);
+//     let parser = Parser::new(one_or_more(parser1)).predicate(|s| {
+//         let mut digits = String::from("");
+//         for digit in s {
+//             digits.push_str(*digit);
+//         }
+//         match digits.parse::<i32>() {
+//             Ok(_) => true,
+//             Err(_) => false,
+//         }
+//     });
+//     let result = parser.parse(input);
+//     let expected = Ok((vec!["2", "2", "2"], ""));
+//     assert_eq!(expected, result)
+// }
 
-#[test]
-fn predicate_0() {
-    let input = "222";
-    let init = match_literal("2");
-    let parser1 = Parser::new(init);
-    let parser = Parser::new(one_or_more(parser1)).predicate(|s| {
-        let mut digits = String::from("");
-        for digit in s {
-            digits.push_str(*digit);
-        }
-        match digits.parse::<i32>() {
-            Ok(_) => true,
-            Err(_) => false,
-        }
-    });
-    let result = parser.parse(input);
-    let expected = Ok((vec!["2", "2", "2"], ""));
-    assert_eq!(expected, result)
-}
+// #[test]
+// fn and_then_0() {
+//     let input = "223";
+//     let init = match_literal("2");
+//     let parser1 = Parser::new(init).new_parser_from_parse_result(|x| Parser::new(match_literal(x)));
 
-#[test]
-fn and_then_0() {
-    let input = "223";
-    let init = match_literal("2");
-    let parser1 = Parser::new(init).new_parser_from_parse_result(|x| Parser::new(match_literal(x)));
+//     let result = parser1.parse(input);
+//     let expected = Ok(("2", "3"));
+//     assert_eq!(expected, result)
+// }
 
-    let result = parser1.parse(input);
-    let expected = Ok(("2", "3"));
-    assert_eq!(expected, result)
-}
+// #[test]
+// fn or_else_0() {
+//     let input = "2123";
+//     let init1 = match_literal("1");
+//     let init2 = match_literal("2");
 
-#[test]
-fn or_else_0() {
-    let input = "2123";
-    let init1 = match_literal("1");
-    let init2 = match_literal("2");
+//     let parser2 = Parser::new(init2);
+//     let parser1 = Parser::new(init1).or_else::<Parser<'_, &str, &str>>(parser2);
 
-    let parser2 = Parser::new(init2);
-    let parser1 = Parser::new(init1).or_else::<Parser<'_, &str, &str>>(parser2);
+//     let result = parser1.parse(input);
+//     let expected = Ok(("2", "123"));
+//     assert_eq!(expected, result);
 
-    let result = parser1.parse(input);
-    let expected = Ok(("2", "123"));
-    assert_eq!(expected, result);
+//     let input2 = "21";
+//     let result = parser1.parse(input2);
+//     let expected = Ok(("2", "1"));
+//     assert_eq!(expected, result);
 
-    let input2 = "21";
-    let result = parser1.parse(input2);
-    let expected = Ok(("2", "1"));
-    assert_eq!(expected, result);
+//     let input3 = "12";
+//     let result = parser1.parse(input3);
+//     let expected = Ok(("1", "2"));
+//     assert_eq!(expected, result)
+// }
 
-    let input3 = "12";
-    let result = parser1.parse(input3);
-    let expected = Ok(("1", "2"));
-    assert_eq!(expected, result)
-}
-
-fn any(input: &str) -> ParseResult<&str, char> {
-    match input.chars().next() {
-        Some(next) => Ok((next, &input[next.len_utf8()..])),
-        _ => Err("error".to_string()),
-    }
-}
+// fn any(input: &str) -> ParseResult<&str, char> {
+//     match input.chars().next() {
+//         Some(next) => Ok((next, &input[next.len_utf8()..])),
+//         _ => Err("error".to_string()),
+//     }
+// }
 
 //todo testsPa
 //     Input shall implement iterable and equality
