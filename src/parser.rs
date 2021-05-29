@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs::read_to_string, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
+pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 //Core
 // pub trait Parse<'a, Output >   {
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
@@ -78,7 +78,6 @@ where
         PredicateFunction: Fn(&Output) -> bool + 'a,
     {
         Parser::new(move |input: Input| {
-            let input_ = input.clone();
             if let Ok((value, next_input)) = self.parse(input) {
                 if pred_fn(&value) {
                     return Ok((value, next_input));
@@ -159,7 +158,7 @@ pub fn one_or_more<'a, Parser1, Input, Result1>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
-    Parser1: Parse<'a, Input, Result1>,
+    Parser1: Parse<'a, Input, Result1> + 'a,
     Input: Debug + Clone + 'a + IntoIterator,
     <Input as IntoIterator>::Item: Eq,
     Result1: Debug + Clone + 'a,
@@ -187,7 +186,7 @@ pub fn zero_or_more<'a, Parser1, Input, Result1>(
     parser: Parser1,
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
-    Parser1: Parse<'a, Input, Result1>,
+    Parser1: Parse<'a, Input, Result1> + 'a,
     Input: Debug + Clone + 'a + IntoIterator,
     <Input as IntoIterator>::Item: Eq,
     Result1: Debug + Clone + 'a,
@@ -308,11 +307,11 @@ where
     }
 
     pub fn first(self) -> Parser<'a, Input, T1> {
-        self.transform(|(first, _)| first)
+        self.transform(move |(first, _)| first)
     }
 
     pub fn second(self) -> Parser<'a, Input, T1> {
-        self.transform(|(first, _)| first)
+        self.transform(move |(first, _)| first)
     }
 }
 
@@ -341,26 +340,26 @@ where
         }
     }
     pub fn try_left(self) -> Parser<'a, Input, Result<T1, EitherType<T1, T2>>> {
-        self.transform(|x| x.try_into_left())
+        self.transform(move |x| x.try_into_left())
     }
 
     pub fn try_right(self) -> Parser<'a, Input, Result<T2, EitherType<T1, T2>>> {
-        self.transform(|x| x.try_into_right())
+        self.transform(move |x| x.try_into_right())
     }
     pub fn as_left(self) -> Parser<'a, Input, Option<T1>> {
-        self.transform(|x| x.as_left())
+        self.transform(move |x| x.as_left())
     }
 
     pub fn as_right(self) -> Parser<'a, Input, Option<T2>> {
-        Parser::new(self.clone().transform(|y| y.as_right()))
+        Parser::new(self.clone().transform(move |y| y.as_right()))
     }
 
     pub fn is_left(self) -> Parser<'a, Input, bool> {
-        self.transform(|x| x.is_left())
+        self.transform(move |x| x.is_left())
     }
 
     pub fn is_right(self) -> Parser<'a, Input, bool> {
-        self.transform(|x| x.is_right())
+        self.transform(move |x| x.is_right())
     }
 }
 
@@ -417,7 +416,7 @@ where
 
 impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
 where
-    Function: for<'r> Fn(Input) -> ParseResult<'a, Input, Output>,
+    Function: for<'r> Fn(Input) -> ParseResult<'a, Input, Output> + 'a,
     Input: Debug + Clone + 'a + IntoIterator,
     <Input as IntoIterator>::Item: Eq,
     Output: Debug + Clone + 'a,
