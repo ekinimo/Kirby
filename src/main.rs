@@ -1,32 +1,31 @@
 #![feature(member_constraints)]
 #![feature(toowned_clone_into)]
 
-use parser::{Parse, ParseResult, Parser, match_literal, zero_or_more};
-use std::{fmt::Debug, fs::read_to_string, rc::Rc, str::Chars};
-
+use parser::{match_literal, Parse, ParseResult, Parser};
+use std::str::Chars;
 
 mod parser;
 
 fn main() {
     println!("Hello, world!");
-     let parse_digit = vec![
-         parser::Parser::new(match_literal("1")),
-         parser::Parser::new(match_literal("2")),
-         parser::Parser::new(match_literal("3")),
-         parser::Parser::new(match_literal("3")),
-         parser::Parser::new(match_literal("5")),
-         parser::Parser::new(match_literal("4")),
-         parser::Parser::new(match_literal("7")),
-         parser::Parser::new(match_literal("8")),
-         parser::Parser::new(match_literal("9")),
-     ]
-     .iter()
-     .fold(
-         parser::Parser::new(match_literal("0")),
-         |x: Parser<Chars, Chars>, y| x.or_else::<Parser<Chars, Chars>>(y.clone()),
-     );
+    let parse_digit = vec![
+        parser::Parser::new(match_literal("1")),
+        parser::Parser::new(match_literal("2")),
+        parser::Parser::new(match_literal("3")),
+        parser::Parser::new(match_literal("3")),
+        parser::Parser::new(match_literal("5")),
+        parser::Parser::new(match_literal("4")),
+        parser::Parser::new(match_literal("7")),
+        parser::Parser::new(match_literal("8")),
+        parser::Parser::new(match_literal("9")),
+    ]
+    .iter()
+    .fold(
+        parser::Parser::new(match_literal("0")),
+        |x: Parser<Chars, Chars>, y| x.or_else::<Parser<Chars, Chars>>(y.clone()),
+    );
 
-     println!("{:?}", parse_digit.parse("23".chars()));
+    println!("{:?}", parse_digit.parse("23".chars()));
 
     let parse_digits = parse_digit.clone().zero_or_more();
 
@@ -53,17 +52,19 @@ fn main() {
     println!("{:?}", parse_ones_then_twos_first.parse("11111122".chars()));
 
     let parse_ones_then_twos_second = parse_ones.pair(parse_twos).second();
-    println!("{:?}", parse_ones_then_twos_second.parse("11111122".chars()));
+    println!(
+        "{:?}",
+        parse_ones_then_twos_second.parse("11111122".chars())
+    );
 
-
-     let any_parser = Parser::new(any);
+    let _any_parser = Parser::new(any);
 }
 
 //type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 
- pub fn any(mut input: Chars) -> ParseResult<Chars,char> {
-     match input.next() {
-         Some(next) => Ok((next, input)),
-         _ => Err("error".to_string()),
-     }
- }
+pub fn any(mut input: Chars) -> ParseResult<Chars, char> {
+    match input.next() {
+        Some(next) => Ok((next, input)),
+        _ => Err("error".to_string()),
+    }
+}

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs::read_to_string, rc::Rc, str::Chars};
+use std::{fmt::Debug, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
 pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
@@ -258,7 +258,7 @@ where
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -269,7 +269,7 @@ where
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -330,7 +330,7 @@ where
         Self {
             parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
                 Ok((left_result, rest)) => Ok((EitherType::Left(left_result), rest)),
-                Err(_) => match parser2.parse(input.clone()) {
+                Err(_) => match parser2.parse(input) {
                     Ok((right_result, remaining)) => {
                         Ok((EitherType::Right(right_result), remaining))
                     }
