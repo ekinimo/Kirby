@@ -1,7 +1,7 @@
 use std::{fmt::Debug, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
+type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 //Core
 // pub trait Parse<'a, Output >   {
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
@@ -10,9 +10,9 @@ pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 #[derive(Clone)]
 pub struct Parser<'a, Input, T>
 where
-    Input: Debug + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
-    T: Debug,
+    Input: Debug + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone + 'a,
+    T: Debug + Clone,
 {
     parser: Rc<dyn Parse<'a, Input, T> + 'a>,
 }
@@ -20,10 +20,10 @@ where
 #[derive(Clone)]
 pub struct Pair<'a, Input, T1, T2>
 where
-    Input: Debug + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
-    T1: Debug,
-    T2: Debug,
+    Input: Debug + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+    T1: Debug + Clone,
+    T2: Debug + Clone,
 {
     parser: Rc<dyn Parse<'a, Input, (T1, T2)> + 'a>,
 }
@@ -31,8 +31,8 @@ where
 #[derive(Clone)]
 pub struct Either<'a, Input, T1, T2>
 where
-    Input: Debug + IntoIterator + 'a,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Iterator + 'a,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
     T2: Debug + Clone,
 {
@@ -51,11 +51,12 @@ where
 
 pub trait Parse<'a, Input, Output>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output>;
+
     fn transform<TransformFunction, Output2: Debug>(
         self,
         transfomfunc: TransformFunction,
@@ -159,8 +160,8 @@ pub fn one_or_more<'a, Parser1, Input, Result1>(
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
     Parser1: Parse<'a, Input, Result1> + 'a,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
@@ -187,8 +188,8 @@ pub fn zero_or_more<'a, Parser1, Input, Result1>(
 ) -> impl Parse<'a, Input, Vec<Result1>>
 where
     Parser1: Parse<'a, Input, Result1> + 'a,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     Result1: Debug + Clone + 'a,
 {
     move |mut input: Input| {
@@ -253,8 +254,8 @@ where
 
 impl<'a, Input, T1, T2> Debug for Pair<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -264,8 +265,8 @@ where
 }
 impl<'a, Input, T1, T2> Debug for Either<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -276,8 +277,8 @@ where
 
 impl<'a, Input, T1, T2> Pair<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -317,8 +318,8 @@ where
 
 impl<'a, Input, T1, T2> Either<'a, Input, T1, T2>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
@@ -367,8 +368,8 @@ impl<'a, Input, T1, T2> Parse<'a, Input, (T1, T2)> for Pair<'a, Input, T1, T2>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, (T1, T2)> {
         self.parser.parse(input)
@@ -379,8 +380,8 @@ impl<'a, Input, T1, T2> Parse<'a, Input, EitherType<T1, T2>> for Either<'a, Inpu
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, EitherType<T1, T2>> {
         self.parser.parse(input)
@@ -389,8 +390,8 @@ where
 
 impl<'a, Input, T> Parser<'a, Input, T>
 where
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     T: Debug + Clone,
 {
     pub fn new<P>(parser: P) -> Self
@@ -403,11 +404,58 @@ where
     }
 }
 
+pub fn match_literal<'a, Input>(to_matched: Input) -> Parser<'a, Input, Input>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| {
+        let l = to_matched.clone().count();
+        match input
+            .clone()
+            .take(l)
+            .zip(to_matched.clone())
+            .all(|(x, y)| x == y)
+        {
+            _ => {
+                for _ in 0..l {
+                    input.next();
+                }
+                Ok((to_matched.clone(), input))
+            }
+        }
+    })
+}
+
+pub fn match_anything<'a, Input>() -> Parser<'a, Input, <Input as Iterator>::Item>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| match input.next() {
+        Some(x) => Ok((x, input)),
+        None => Err("error".to_string()),
+    })
+}
+
+pub fn match_character<'a, Input>(
+    character: <Input as Iterator>::Item,
+) -> Parser<'a, Input, <Input as Iterator>::Item>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| match input.next() {
+        Some(x) if x == character => Ok((x, input)),
+        _ => Err("error".to_string()),
+    })
+}
+
 impl<'a, Input, T> Parse<'a, Input, T> for Parser<'a, Input, T>
 where
     T: Debug + Clone,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, T> {
         self.parser.parse(input)
@@ -416,9 +464,9 @@ where
 
 impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
 where
-    Function: for<'r> Fn(Input) -> ParseResult<'a, Input, Output> + 'a,
-    Input: Debug + Clone + 'a + IntoIterator,
-    <Input as IntoIterator>::Item: Eq,
+    Function: Fn(Input) -> ParseResult<'a, Input, Output> + 'a,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
@@ -426,7 +474,19 @@ where
     }
 }
 
-pub fn match_literal<'a, 'b>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>> {
+// impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
+// where
+//     Function:  Fn(Input) -> ParseResult<'a, Input, Output> + 'a,
+//     Input: Debug + Clone + 'a + Iterator,
+//     <Input as Iterator>::Item: Eq,
+//     Output: Debug + Clone + 'a,
+// {
+//     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
+//         self(input)
+//     }
+// }
+
+pub fn match_literal_str<'a, 'b>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>> {
     move |input1: Chars<'a>| {
         let input = input1.clone().collect::<String>();
         match input.as_str().get(0..expected.len()) {
@@ -446,7 +506,7 @@ pub fn match_literal<'a, 'b>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Cha
 
 #[test]
 fn match_literal_test_1() {
-    let parser = match_literal("1");
+    let parser = match_literal_str("1");
     let input = "1".chars();
     let result = parser.parse(input);
     println!("{:?}", result);
