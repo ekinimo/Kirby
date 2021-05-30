@@ -1,7 +1,7 @@
 use std::{fmt::Debug, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
-type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
+pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 //Core
 // pub trait Parse<'a, Output >   {
 //     fn parse(&self, input: &'a str) -> ParseResult<'a,Output>;
@@ -417,12 +417,13 @@ where
             .zip(to_matched.clone())
             .all(|(x, y)| x == y)
         {
-            _ => {
+            true => {
                 for _ in 0..l {
                     input.next();
                 }
                 Ok((to_matched.clone(), input))
             }
+            false => Err("error".to_string())
         }
     })
 }

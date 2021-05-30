@@ -1,7 +1,7 @@
 #![feature(member_constraints)]
 #![feature(toowned_clone_into)]
 
-use parser::{match_literal, Parse, ParseResult, Parser};
+use parser::{match_literal,match_literal_str, Parse, ParseResult, Parser};
 use std::str::Chars;
 
 mod parser;
@@ -9,19 +9,19 @@ mod parser;
 fn main() {
     println!("Hello, world!");
     let parse_digit = vec![
-        parser::Parser::new(match_literal("1")),
-        parser::Parser::new(match_literal("2")),
-        parser::Parser::new(match_literal("3")),
-        parser::Parser::new(match_literal("3")),
-        parser::Parser::new(match_literal("5")),
-        parser::Parser::new(match_literal("4")),
-        parser::Parser::new(match_literal("7")),
-        parser::Parser::new(match_literal("8")),
-        parser::Parser::new(match_literal("9")),
+        parser::Parser::new(match_literal_str("1")),
+        parser::Parser::new(match_literal_str("2")),
+        parser::Parser::new(match_literal_str("3")),
+        parser::Parser::new(match_literal_str("3")),
+        parser::Parser::new(match_literal_str("5")),
+        parser::Parser::new(match_literal_str("4")),
+        parser::Parser::new(match_literal_str("7")),
+        parser::Parser::new(match_literal_str("8")),
+        parser::Parser::new(match_literal_str("9")),
     ]
     .iter()
     .fold(
-        parser::Parser::new(match_literal("0")),
+        parser::Parser::new(match_literal_str("0")),
         |x: Parser<Chars, Chars>, y| x.or_else::<Parser<Chars, Chars>>(y.clone()),
     );
 
@@ -39,10 +39,10 @@ fn main() {
 
     println!("{:?}", parse_natural_numbers.parse("23".chars()));
 
-    let parse_ones = Parser::new(match_literal("1")).zero_or_more();
+    let parse_ones = Parser::new(match_literal_str("1")).zero_or_more();
     println!("{:?}", parse_ones.parse("11111123".chars()));
 
-    let parse_twos = Parser::new(match_literal("2")).zero_or_more();
+    let parse_twos = Parser::new(match_literal_str("2")).zero_or_more();
     println!("{:?}", parse_twos.clone().parse("11111122".chars()));
 
     let parse_ones_then_twos = parse_ones.clone().pair(parse_twos.clone());
