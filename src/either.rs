@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::{Parse, ParseResult};
 use crate::parser::Parser;
+use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
 pub struct EitherParser<'a, Input, T1, T2>

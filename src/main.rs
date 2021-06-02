@@ -1,10 +1,10 @@
 use std::str::Chars;
 
-use parser_combinator::{Parse, parser, ParseResult};
 use parser_combinator::pair::Pair;
 use parser_combinator::parser::{match_literal_str, Parser};
 use parser_combinator::repeated::RepeatedParser;
 use parser_combinator::triple::Triple;
+use parser_combinator::{parser, Parse, ParseResult};
 
 fn main() {
     //Calculator stuff
@@ -27,7 +27,7 @@ pub fn top_level<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
 }
 
 pub fn expression<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
-    let res = Pair::new(
+    Pair::new(
         term,
         RepeatedParser::zero_or_more(
             Parser::<Chars<'a>, Chars<'a>>::match_literal("+".chars())
@@ -36,8 +36,7 @@ pub fn expression<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
         ),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
-    .parse(input.clone());
-    res
+    .parse(input.clone())
 }
 
 pub fn term<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {

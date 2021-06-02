@@ -1,9 +1,5 @@
 use std::{fmt::Debug, rc::Rc, str::Chars};
 
-
-
-
-
 use crate::{Parse, ParseResult};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
