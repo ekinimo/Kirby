@@ -6,10 +6,11 @@ use std::str::Chars;
 use parser::{match_literal, match_literal_str};
 
 use crate::pair::Pair;
-use crate::parser::{Parse, Parser, ParseResult};
+use crate::parser::{Parse, ParseResult, Parser};
 use crate::repeated::RepeatedParser;
 use crate::triple::Triple;
 
+mod either;
 mod pair;
 mod parser;
 mod repeated;

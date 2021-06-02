@@ -1,7 +1,8 @@
+use crate::either::EitherParser;
 use crate::pair::Pair;
 use crate::repeated::RepeatedParser;
-use std::{fmt::Debug, rc::Rc, str::Chars};
 use crate::triple::Triple;
+use std::{fmt::Debug, rc::Rc, str::Chars};
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
 pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
@@ -18,27 +19,6 @@ where
     T: Debug + Clone,
 {
     parser: Rc<dyn Parse<'a, Input, T> + 'a>,
-}
-
-#[derive(Clone)]
-pub struct Either<'a, Input, T1, T2>
-where
-    Input: Debug + Iterator + 'a,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone,
-    T2: Debug + Clone,
-{
-    parser: Rc<dyn Parse<'a, Input, EitherType<T1, T2>> + 'a>,
-}
-
-#[derive(Clone, Debug)]
-pub enum EitherType<T1, T2>
-where
-    T1: Debug + Clone,
-    T2: Debug + Clone,
-{
-    Left(T1),
-    Right(T2),
 }
 
 pub trait Parse<'a, Input, Output>
@@ -136,14 +116,14 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn either<Parser1, Output2>(self, parser2: Parser1) -> Either<'a, Input, Output, Output2>
+    fn either<Parser1, Output2>(self, parser2: Parser1) -> EitherParser<'a, Input, Output, Output2>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
         Output2: Debug + Clone + 'a,
         Parser1: Parse<'a, Input, Output2> + 'a,
     {
-        Either::new(self, parser2)
+        EitherParser::new(self, parser2)
     }
 
     fn zero_or_more(self) -> RepeatedParser<'a, Input, Output>
@@ -162,126 +142,6 @@ where
     {
         //todo!();
         RepeatedParser::one_or_more(self)
-    }
-}
-
-impl<T1, T2> EitherType<T1, T2>
-where
-    T1: Debug + Clone,
-    T2: Debug + Clone,
-{
-    /// Returns `true` if the either_type is [`Left`].
-    pub fn is_left(&self) -> bool {
-        matches!(self, Self::Left(..))
-    }
-
-    pub fn as_left(&self) -> Option<T1> {
-        if let Self::Left(v) = self {
-            Some(v.clone())
-        } else {
-            None
-        }
-    }
-
-    /// Returns `true` if the either_type is [`Right`].
-    pub fn is_right(&self) -> bool {
-        matches!(self, Self::Right(..))
-    }
-
-    pub fn as_right(&self) -> Option<T2> {
-        if let Self::Right(v) = self {
-            Some(v.clone())
-        } else {
-            None
-        }
-    }
-
-    pub fn try_into_left(self) -> Result<T1, Self> {
-        if let Self::Left(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn try_into_right(self) -> Result<T2, Self> {
-        if let Self::Right(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
-}
-
-impl<'a, Input, T1, T2> Debug for Either<'a, Input, T1, T2>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
-    T2: Debug + Clone + 'a,
-{
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl<'a, Input, T1, T2> Either<'a, Input, T1, T2>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
-    T2: Debug + Clone + 'a,
-{
-    pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
-    where
-        P1: Parse<'a, Input, T1> + 'a,
-        P2: Parse<'a, Input, T2> + 'a,
-    {
-        Self {
-            parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
-                Ok((left_result, rest)) => Ok((EitherType::Left(left_result), rest)),
-                Err(_) => match parser2.parse(input) {
-                    Ok((right_result, remaining)) => {
-                        Ok((EitherType::Right(right_result), remaining))
-                    }
-                    Err(_) => Err("error".to_string()),
-                },
-            }),
-        }
-    }
-    pub fn try_left(self) -> Parser<'a, Input, Result<T1, EitherType<T1, T2>>> {
-        self.transform(move |x| x.try_into_left())
-    }
-
-    pub fn try_right(self) -> Parser<'a, Input, Result<T2, EitherType<T1, T2>>> {
-        self.transform(move |x| x.try_into_right())
-    }
-    pub fn as_left(self) -> Parser<'a, Input, Option<T1>> {
-        self.transform(move |x| x.as_left())
-    }
-
-    pub fn as_right(self) -> Parser<'a, Input, Option<T2>> {
-        Parser::new(self.clone().transform(move |y| y.as_right()))
-    }
-
-    pub fn is_left(self) -> Parser<'a, Input, bool> {
-        self.transform(move |x| x.is_left())
-    }
-
-    pub fn is_right(self) -> Parser<'a, Input, bool> {
-        self.transform(move |x| x.is_right())
-    }
-}
-
-impl<'a, Input, T1, T2> Parse<'a, Input, EitherType<T1, T2>> for Either<'a, Input, T1, T2>
-where
-    T1: Debug + Clone,
-    T2: Debug + Clone,
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-{
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, EitherType<T1, T2>> {
-        self.parser.parse(input)
     }
 }
 
