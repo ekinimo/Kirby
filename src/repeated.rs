@@ -1,6 +1,7 @@
-use crate::parser::{Parse, ParseResult};
 use std::fmt::Debug;
 use std::rc::Rc;
+
+use crate::parser::{Parse, ParseResult};
 
 #[derive(Clone)]
 pub struct RepeatedParser<'a, Input, T1>
@@ -74,11 +75,11 @@ where
 }
 
 impl<'a, Input, T1> Parse<'a, Input, Vec<T1>> for RepeatedParser<'a, Input, T1>
-    where
-        T1: Debug + Clone,
+where
+    T1: Debug + Clone,
 
-        Input: Debug + Clone + 'a + Iterator,
-        <Input as Iterator>::Item: Eq + Debug + Clone,
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>> {
         self.parser.parse(input)
