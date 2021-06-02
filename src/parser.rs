@@ -1,4 +1,5 @@
 use std::{fmt::Debug, rc::Rc, str::Chars};
+use crate::repeated::RepeatedParser;
 
 //type ParseResult<'a, Input, Output> = (Result<Output, &'a str>, Input);
 pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
@@ -15,16 +16,6 @@ where
     T: Debug + Clone,
 {
     parser: Rc<dyn Parse<'a, Input, T> + 'a>,
-}
-
-#[derive(Clone)]
-pub struct Many<'a, Input, T1>
-where
-    Input: Debug + Iterator + 'a,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone,
-{
-    parser: Rc<dyn Parse<'a, Input, Vec<T1>> + 'a>,
 }
 
 #[derive(Clone)]
@@ -176,84 +167,23 @@ where
         Either::new(self, parser2)
     }
 
-    fn zero_or_more(self) -> Many<'a, Input, Output>
+    fn zero_or_more(self) -> RepeatedParser<'a, Input, Output>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
     {
         //todo!();
-        Many::zero_or_more(self)
+        RepeatedParser::zero_or_more(self)
     }
 
-    fn one_or_more(self) -> Many<'a, Input, Output>
+    fn one_or_more(self) -> RepeatedParser<'a, Input, Output>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
     {
         //todo!();
-        Many::one_or_more(self)
+        RepeatedParser::one_or_more(self)
     }
-}
-
-impl<'a, Input, T1> Many<'a, Input, T1>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
-{
-    pub fn zero_or_more<Parser1>(parser: Parser1) -> Self
-    where
-        Parser1: Parse<'a, Input, T1> + 'a,
-        Input: Debug + Clone + 'a + Iterator,
-        <Input as Iterator>::Item: Eq + Debug + Clone,
-    {
-        Self {
-            parser: Rc::new(move |mut input: Input| {
-                let mut result = Vec::new();
-
-                while let Ok((next_item, next_input)) = parser.parse(input.clone()) {
-                    input = next_input;
-                    result.push(next_item);
-                }
-
-                Ok((result, input))
-            }),
-        }
-    }
-
-    pub fn one_or_more<Parser1>(parser: Parser1) -> Self
-    where
-        Parser1: Parse<'a, Input, T1> + 'a,
-        Input: Debug + Clone + 'a + Iterator,
-        <Input as Iterator>::Item: Eq + Debug + Clone,
-    {
-        Self {
-            parser: Rc::new(move |mut input: Input| {
-                let mut result = Vec::new();
-
-                if let Ok((first_item, next_input)) = parser.parse(input.clone()) {
-                    input = next_input;
-                    result.push(first_item);
-                } else {
-                    return Err("error".to_string());
-                }
-
-                while let Ok((next_item, next_input)) = parser.parse(input.clone()) {
-                    input = next_input;
-                    result.push(next_item);
-                }
-
-                Ok((result, input))
-            }),
-        }
-    }
-
-    // pub fn get(self,n : usize) -> Parser<'a, Input, T1> {
-    //     self.transform(move |vec| match vec.get(n) {
-    //         Some(n) => {todo!()},
-    //         None => {todo!()},
-    //     }
-    // }
 }
 
 impl<T1, T2> EitherType<T1, T2>
@@ -476,18 +406,6 @@ where
     <Input as Iterator>::Item: Eq + Debug + Clone,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, EitherType<T1, T2>> {
-        self.parser.parse(input)
-    }
-}
-
-impl<'a, Input, T1> Parse<'a, Input, Vec<T1>> for Many<'a, Input, T1>
-where
-    T1: Debug + Clone,
-
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-{
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>> {
         self.parser.parse(input)
     }
 }

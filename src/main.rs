@@ -1,9 +1,10 @@
 //#![feature(member_constraints)]
 //#![feature(toowned_clone_into)]
 
-use parser::{match_literal, match_literal_str, Many, Pair, Parse, ParseResult, Parser, Triple};
+use parser::{match_literal, match_literal_str, RepeatedParser, Pair, Parse, ParseResult, Parser, Triple};
 use std::str::Chars;
 
+mod repeated;
 mod parser;
 
 fn main() {
@@ -29,7 +30,7 @@ pub fn top_level<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
 pub fn expression<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         term,
-        Many::zero_or_more(match_literal("+".chars()).pair(term).second()),
+        RepeatedParser::zero_or_more(match_literal("+".chars()).pair(term).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
     .parse(input.clone());
@@ -39,7 +40,7 @@ pub fn expression<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
 pub fn term<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         factor,
-        Many::zero_or_more(match_literal("*".chars()).pair(factor).second()),
+        RepeatedParser::zero_or_more(match_literal("*".chars()).pair(factor).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
     .parse(input.clone());
