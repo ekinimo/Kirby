@@ -31,13 +31,29 @@ where
         P3: Parse<'a, Input, T3> + 'a,
     {
         Self {
-            parser: Rc::new(move |input| {
-                let (result1, input2) = parser1.parse(input)?;
-                let (result2, input3) = parser2.parse(input2)?;
-                let (result3, rest) = parser3.parse(input3)?;
-                Ok(((result1, result2, result3), rest))
+            parser: Rc::new(move |input| match parser1.parse(input) {
+                Ok((result1, input2)) => match parser2.parse(input2) {
+                    Ok((result2, input3)) => {
+                        match parser3.parse(input3) {
+                            Ok((result3,rest)) => {Ok(((result1,result2,result3),rest))},
+                            Err(mut err) => {
+                                err.push_str("Parser Combinator : Triple parser, third parser failed \n");
+                                Err(err)
+                            }
+                        }
+                    },
+                    Err(mut err) => {
+                        err.push_str("Parser Combinator : Triple parser, second parser failed \n");
+                        Err(err)
+                    }
+                },
+                Err(mut err) => {
+                    err.push_str("Parser Combinator : Triple parser, first parser failed \n");
+                    Err(err)
+                }
             }),
         }
+
     }
 
     pub fn first(self) -> Parser<'a, Input, T1> {

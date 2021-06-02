@@ -28,10 +28,18 @@ where
         P2: Parse<'a, Input, T2> + 'a,
     {
         Self {
-            parser: Rc::new(move |input| {
-                let (result1, input2) = parser1.parse(input)?;
-                let (result2, rest) = parser2.parse(input2)?;
-                Ok(((result1, result2), rest))
+            parser: Rc::new(move |input| match parser1.parse(input) {
+                Ok((result1, input2)) => match parser2.parse(input2) {
+                    Ok((result2, rest)) => Ok(((result1, result2), rest)),
+                    Err(mut err) => {
+                        err.push_str("Parser Combinator : Pair parser, second parser failed \n");
+                        Err(err)
+                    }
+                },
+                Err(mut err) => {
+                    err.push_str("Parser Combinator : Pair parser, first parser failed \n");
+                    Err(err)
+                }
             }),
         }
     }

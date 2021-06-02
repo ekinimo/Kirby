@@ -46,9 +46,9 @@ where
                     for _ in 0..l {
                         input.next();
                     }
-                    Ok((to_matched.clone(), input))
+                    Ok((to_matched.to_owned(), input))
                 }
-                false => Err("error".to_string()),
+                false => Err(format!("Parser Combinator : match_literal failed. expected {:?} got {:?}",to_matched,input).to_string()),
             }
         })
     }
@@ -56,7 +56,7 @@ where
     pub fn match_anything() -> Parser<'a, Input, <Input as Iterator>::Item> {
         Parser::new(move |mut input: Input| match input.next() {
             Some(x) => Ok((x, input)),
-            None => Err("error".to_string()),
+            None => Err(format!("Parser Combinator : match_anything failed. expected input got {:?}",input).to_string()),
         })
     }
 
@@ -65,7 +65,7 @@ where
     ) -> Parser<'a, Input, <Input as Iterator>::Item> {
         Parser::new(move |mut input: Input| match input.next() {
             Some(x) if x == character => Ok((x, input)),
-            _ => Err("error".to_string()),
+            _ => Err(format!("Parser Combinator : match_character failed. expected input got {:?}",input).to_string()),
         })
     }
 }
@@ -94,7 +94,7 @@ pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Cha
                 //    *(&input1.as_str()[expected.len()..].chars().clone())))},
                 Ok((x.chars(), y.chars()))
             }
-            _ => Err("error".to_string()),
+            _ => Err(format!("Parser Combinator : match_literal_str failed. expected {:?} got {:?}",expected,input).to_string()),
         }
     }
 }

@@ -44,13 +44,18 @@ where
         Output: 'a,
         PredicateFunction: Fn(&Output) -> bool + 'a,
     {
-        Parser::new(move |input: Input| {
-            if let Ok((value, next_input)) = self.parse(input) {
+        Parser::new(move |input: Input| match self.parse(input.clone()) {
+            Ok((value, next_input)) => {
                 if pred_fn(&value) {
-                    return Ok((value, next_input));
+                    Ok((value, next_input))
+                } else {
+                    Err(format!("Parser Combinator : Predicate parser failed. predicate does not hold  \n {:?} \n",input).to_string())
                 }
             }
-            Err("error".to_string())
+            Err(mut err) => {
+                err.push_str("Parser Combinator : Predicate parser failed \n");
+                Err(err)
+            }
         })
     }
 
@@ -67,7 +72,10 @@ where
     {
         Parser::new(move |input| match self.parse(input) {
             Ok((result, next_input)) => f(result).parse(next_input),
-            Err(err) => Err(err),
+            Err(mut err) => {
+                err.push_str("Parser Combinator : new_parser_from_parse_result failed \n");
+                Err(err)
+            }
         })
     }
 

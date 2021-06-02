@@ -30,9 +30,9 @@ where
         Self {
             parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
                 Ok((left_result, rest)) => Ok((Either::Left(left_result), rest)),
-                Err(_) => match parser2.parse(input) {
+                Err(_) => match parser2.parse(input.clone()) {
                     Ok((right_result, remaining)) => Ok((Either::Right(right_result), remaining)),
-                    Err(_) => Err("error".to_string()),
+                    Err(_) => Err(format!("Parser Combinator : Either parser failed, remaining {:?}",input).to_string()),
                 },
             }),
         }
