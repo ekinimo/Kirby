@@ -9,24 +9,24 @@ use crate::{Parse, ParseResult};
 // }
 
 #[derive(Clone)]
-pub struct Parser<'a, Input, T>
+pub struct Parser<'a, Input, Output>
 where
     Input: Debug + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone + 'a,
-    T: Debug + Clone,
+    Output: Debug + Clone,
 {
-    parser: Rc<dyn Parse<'a, Input, T> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, Output> + 'a>,
 }
 
-impl<'a, Input, T> Parser<'a, Input, T>
+impl<'a, Input, Output> Parser<'a, Input, Output>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
-    T: Debug + Clone,
+    Output: Debug + Clone,
 {
     pub fn new<P>(parser: P) -> Self
     where
-        P: Parse<'a, Input, T> + 'a,
+        P: Parse<'a, Input, Output> + 'a,
     {
         Self {
             parser: Rc::from(parser),
@@ -70,13 +70,13 @@ where
     }
 }
 
-impl<'a, Input, T> Parse<'a, Input, T> for Parser<'a, Input, T>
+impl<'a, Input, Output> Parse<'a, Input, Output> for Parser<'a, Input, Output>
 where
-    T: Debug + Clone,
+    Output: Debug + Clone,
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, T> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
         self.parser.parse(input)
     }
 }
