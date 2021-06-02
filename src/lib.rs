@@ -71,11 +71,11 @@ where
         })
     }
 
-    fn or_else<Parser>(self, parser2: Parser) -> Parser<'a, Input, Output>
+    fn or_else<Parser1>(self, parser2: Parser1) -> Parser<'a, Input, Output>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
-        Parser: Parse<'a, Input, Output>,
+        Parser1: Parse<'a, Input, Output> + 'a,
     {
         Parser::new(move |input: Input| match self.parse(input.clone()) {
             res @ Ok(_) => res,
