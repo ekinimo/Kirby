@@ -3,7 +3,7 @@
 
 use std::str::Chars;
 
-use parser::{match_literal, match_literal_str};
+use parser::{match_literal_str};
 
 use crate::pair::Pair;
 use crate::parser::{Parse, ParseResult, Parser};
@@ -31,7 +31,7 @@ fn main() {
 
 pub fn top_level<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     expression
-        .pair(match_literal(";".chars()))
+        .pair(Parser::<Chars<'a>, Chars<'a>>::match_literal(";".chars()))
         .first()
         .parse(input)
 }
@@ -39,7 +39,7 @@ pub fn top_level<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
 pub fn expression<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         term,
-        RepeatedParser::zero_or_more(match_literal("+".chars()).pair(term).second()),
+        RepeatedParser::zero_or_more(Parser::<Chars<'a>, Chars<'a>>::match_literal("+".chars()).pair(term).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
     .parse(input.clone());
@@ -49,7 +49,7 @@ pub fn expression<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
 pub fn term<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         factor,
-        RepeatedParser::zero_or_more(match_literal("*".chars()).pair(factor).second()),
+        RepeatedParser::zero_or_more(Parser::<Chars<'a>, Chars<'a>>::match_literal("*".chars()).pair(factor).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
     .parse(input.clone());
@@ -88,9 +88,9 @@ pub fn factor<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     });
 
     let res = Triple::new(
-        match_literal("(".chars()),
+        Parser::<Chars<'a>, Chars<'a>>::match_literal("(".chars()),
         expression,
-        match_literal(")".chars()),
+        Parser::<Chars<'a>, Chars<'a>>::match_literal(")".chars()),
     )
     .second()
     .or_else::<Parser<Chars, i32>>(parse_natural_numbers.clone())

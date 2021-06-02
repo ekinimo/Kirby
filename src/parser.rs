@@ -159,54 +159,42 @@ where
             parser: Rc::from(parser),
         }
     }
-}
 
-pub fn match_literal<'a, Input>(to_matched: Input) -> Parser<'a, Input, Input>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-{
-    Parser::new(move |mut input: Input| {
-        let l = to_matched.clone().count();
-        match input
-            .clone()
-            .take(l)
-            .zip(to_matched.clone())
-            .all(|(x, y)| x == y)
-        {
-            true => {
-                for _ in 0..l {
-                    input.next();
+    pub fn match_literal(to_matched: Input) -> Parser<'a, Input, Input> {
+        Parser::new(move |mut input: Input| {
+            let l = to_matched.clone().count();
+            match input
+                .clone()
+                .take(l)
+                .zip(to_matched.clone())
+                .all(|(x, y)| x == y)
+            {
+                true => {
+                    for _ in 0..l {
+                        input.next();
+                    }
+                    Ok((to_matched.clone(), input))
                 }
-                Ok((to_matched.clone(), input))
+                false => Err("error".to_string()),
             }
-            false => Err("error".to_string()),
-        }
-    })
-}
+        })
+    }
 
-pub fn match_anything<'a, Input>() -> Parser<'a, Input, <Input as Iterator>::Item>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-{
-    Parser::new(move |mut input: Input| match input.next() {
-        Some(x) => Ok((x, input)),
-        None => Err("error".to_string()),
-    })
-}
+    pub fn match_anything() -> Parser<'a, Input, <Input as Iterator>::Item> {
+        Parser::new(move |mut input: Input| match input.next() {
+            Some(x) => Ok((x, input)),
+            None => Err("error".to_string()),
+        })
+    }
 
-pub fn match_character<'a, Input>(
-    character: <Input as Iterator>::Item,
-) -> Parser<'a, Input, <Input as Iterator>::Item>
-where
-    Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-{
-    Parser::new(move |mut input: Input| match input.next() {
-        Some(x) if x == character => Ok((x, input)),
-        _ => Err("error".to_string()),
-    })
+    pub fn match_character(
+        character: <Input as Iterator>::Item,
+    ) -> Parser<'a, Input, <Input as Iterator>::Item> {
+        Parser::new(move |mut input: Input| match input.next() {
+            Some(x) if x == character => Ok((x, input)),
+            _ => Err("error".to_string()),
+        })
+    }
 }
 
 impl<'a, Input, T> Parse<'a, Input, T> for Parser<'a, Input, T>
