@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::parser::{Parse, ParseResult};
+use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
 pub struct RepeatedParser<'a, Input, T1>

@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::parser::{Parse, ParseResult, Parser};
+use crate::{Parse, ParseResult};
+use crate::parser::Parser;
 
 #[derive(Clone)]
 pub struct EitherParser<'a, Input, T1, T2>
@@ -30,35 +31,34 @@ where
             parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
                 Ok((left_result, rest)) => Ok((Either::Left(left_result), rest)),
                 Err(_) => match parser2.parse(input) {
-                    Ok((right_result, remaining)) => {
-                        Ok((Either::Right(right_result), remaining))
-                    }
+                    Ok((right_result, remaining)) => Ok((Either::Right(right_result), remaining)),
                     Err(_) => Err("error".to_string()),
                 },
             }),
         }
     }
     pub fn try_left(self) -> Parser<'a, Input, Result<T1, Either<T1, T2>>> {
-        self.transform(move |x| x.try_into_left())
+        self.clone().transform(move |x| x.try_into_left())
     }
 
     pub fn try_right(self) -> Parser<'a, Input, Result<T2, Either<T1, T2>>> {
-        self.transform(move |x| x.try_into_right())
-    }
-    pub fn as_left(self) -> Parser<'a, Input, Option<T1>> {
-        self.transform(move |x| x.as_left())
+        self.clone().transform(move |x| x.try_into_right())
     }
 
-    pub fn as_right(self) -> Parser<'a, Input, Option<T2>> {
-        Parser::new(self.clone().transform(move |y| y.as_right()))
+    pub fn as_left(&self) -> Parser<'a, Input, Option<T1>> {
+        self.clone().transform(move |x| x.as_left())
     }
 
-    pub fn is_left(self) -> Parser<'a, Input, bool> {
-        self.transform(move |x| x.is_left())
+    pub fn as_right(&self) -> Parser<'a, Input, Option<T2>> {
+        self.clone().transform(move |x| x.as_right())
     }
 
-    pub fn is_right(self) -> Parser<'a, Input, bool> {
-        self.transform(move |x| x.is_right())
+    pub fn is_left(&self) -> Parser<'a, Input, bool> {
+        self.clone().transform(move |x| x.is_left())
+    }
+
+    pub fn is_right(&self) -> Parser<'a, Input, bool> {
+        self.clone().transform(move |x| x.is_right())
     }
 }
 

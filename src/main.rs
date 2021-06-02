@@ -1,20 +1,10 @@
-//#![feature(member_constraints)]
-//#![feature(toowned_clone_into)]
-
 use std::str::Chars;
 
-use parser::{match_literal_str};
-
-use crate::pair::Pair;
-use crate::parser::{Parse, ParseResult, Parser};
-use crate::repeated::RepeatedParser;
-use crate::triple::Triple;
-
-mod either;
-mod pair;
-mod parser;
-mod repeated;
-mod triple;
+use parser_combinator::{Parse, parser, ParseResult};
+use parser_combinator::pair::Pair;
+use parser_combinator::parser::{match_literal_str, Parser};
+use parser_combinator::repeated::RepeatedParser;
+use parser_combinator::triple::Triple;
 
 fn main() {
     //Calculator stuff
@@ -29,34 +19,42 @@ fn main() {
 
 //type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 
-pub fn top_level<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
+pub fn top_level<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     expression
         .pair(Parser::<Chars<'a>, Chars<'a>>::match_literal(";".chars()))
         .first()
         .parse(input)
 }
 
-pub fn expression<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
+pub fn expression<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         term,
-        RepeatedParser::zero_or_more(Parser::<Chars<'a>, Chars<'a>>::match_literal("+".chars()).pair(term).second()),
+        RepeatedParser::zero_or_more(
+            Parser::<Chars<'a>, Chars<'a>>::match_literal("+".chars())
+                .pair(term)
+                .second(),
+        ),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
     .parse(input.clone());
     res
 }
 
-pub fn term<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
+pub fn term<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     let res = Pair::new(
         factor,
-        RepeatedParser::zero_or_more(Parser::<Chars<'a>, Chars<'a>>::match_literal("*".chars()).pair(factor).second()),
+        RepeatedParser::zero_or_more(
+            Parser::<Chars<'a>, Chars<'a>>::match_literal("*".chars())
+                .pair(factor)
+                .second(),
+        ),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
     .parse(input.clone());
     res
 }
 
-pub fn factor<'a>(mut input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
+pub fn factor<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32> {
     //println!("factor = {:?}", input);
     let parse_digit = vec![
         parser::Parser::new(match_literal_str("1")),

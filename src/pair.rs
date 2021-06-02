@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::parser::{Parse, ParseResult, Parser};
+use crate::parser::Parser;
+use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
 pub struct Pair<'a, Input, T1, T2>
