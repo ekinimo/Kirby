@@ -81,7 +81,7 @@ where
 
     fn transform<TransformFunction, Output2: Debug>(
         self,
-        transfomfunc: TransformFunction,
+        transform_function: TransformFunction,
     ) -> Parser<'a, Input, Output2>
     where
         Self: Sized + 'a,
@@ -91,9 +91,10 @@ where
     {
         Parser::new(move |input| {
             self.parse(input)
-                .map(|(result, rest)| (transfomfunc(result), rest))
+                .map(|(result, rest)| (transform_function(result), rest))
         })
     }
+
     fn predicate<PredicateFunction>(self, pred_fn: PredicateFunction) -> Parser<'a, Input, Output>
     where
         Self: Sized + 'a,
@@ -183,6 +184,7 @@ where
         //todo!();
         Many::zero_or_more(self)
     }
+
     fn one_or_more(self) -> Many<'a, Input, Output>
     where
         Self: Sized + 'a,
@@ -372,15 +374,11 @@ where
         P3: Parse<'a, Input, T3> + 'a,
     {
         Self {
-            parser: Rc::new(move |input| match parser1.parse(input) {
-                Ok((res1, input2)) => match parser2.parse(input2) {
-                    Ok((res2, input3)) => match parser3.parse(input3) {
-                        Ok((res3, rest)) => Ok(((res1, res2, res3), rest)),
-                        Err(_) => Err("error".to_string()),
-                    },
-                    Err(_) => Err("error".to_string()),
-                },
-                Err(_) => Err("error".to_string()),
+            parser: Rc::new(move |input| {
+                let (result1, input2) = parser1.parse(input)?;
+                let (result2, input3) = parser2.parse(input2)?;
+                let (result3, rest) = parser3.parse(input3)?;
+                Ok(((result1, result2, result3), rest))
             }),
         }
     }
