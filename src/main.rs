@@ -1,14 +1,19 @@
 //#![feature(member_constraints)]
 //#![feature(toowned_clone_into)]
 
-use parser::{
-    match_literal, match_literal_str, Pair, Parse, ParseResult, Parser, RepeatedParser, Triple,
-};
 use std::str::Chars;
+
+use parser::{match_literal, match_literal_str};
+
+use crate::pair::Pair;
+use crate::parser::{Parse, Parser, ParseResult};
+use crate::repeated::RepeatedParser;
+use crate::triple::Triple;
 
 mod pair;
 mod parser;
 mod repeated;
+mod triple;
 
 fn main() {
     //Calculator stuff

@@ -27,12 +27,10 @@ where
         P2: Parse<'a, Input, T2> + 'a,
     {
         Self {
-            parser: Rc::new(move |input| match parser1.parse(input) {
-                Ok((left_result, rest)) => match parser2.parse(rest) {
-                    Ok((right_result, rest2)) => Ok(((left_result, right_result), rest2)),
-                    Err(err) => Err(err),
-                },
-                Err(er) => Err(er),
+            parser: Rc::new(move |input| {
+                let (result1, input2) = parser1.parse(input)?;
+                let (result2, rest) = parser2.parse(input2)?;
+                Ok(((result1, result2), rest))
             }),
         }
     }
