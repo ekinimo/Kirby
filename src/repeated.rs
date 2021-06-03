@@ -53,12 +53,13 @@ where
                     Ok((first_item, next_input)) => {
                         input = next_input;
                         result.push(first_item);
-                    },
+                    }
                     Err(mut err) => {
                         err.push_str("Parser Combinator : Repeated parser,  parser failed \n");
-                        return Err(err)},
+                        return Err(err);
+                    }
                 }
-                
+
                 while let Ok((next_item, next_input)) = parser.parse(input.clone()) {
                     input = next_input;
                     result.push(next_item);

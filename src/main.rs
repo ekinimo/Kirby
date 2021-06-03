@@ -8,13 +8,184 @@ use parser_combinator::{parser, Parse, ParseResult};
 
 fn main() {
     //Calculator stuff
-    println!("{:?}", top_level("1+2+3*4+6;".chars()));
-    println!("{:?}", top_level("1+2+3+4+5;".chars()));
-    println!("{:?}", top_level("1+(2+3)*4;".chars()));
-    println!("{:?}", top_level("1+2+3*4+1;".chars()));
-    println!("{:?}", top_level("1*2*3*4;".chars()));
-    println!("{:?}", top_level("1*(2+3*4);".chars()));
-    println!("{:?}", top_level("1+2+3*4+5+2+6;".chars()));
+    // println!("{:?}", top_level("1+2+3*4+6;".chars()));
+    // println!("{:?}", top_level("1+2+3+4+5;".chars()));
+    // println!("{:?}", top_level("1+(2+3)*4;".chars()));
+    // println!("{:?}", top_level("1+2+3*4+1;".chars()));
+    // println!("{:?}", top_level("1*2*3*4;".chars()));
+    // println!("{:?}", top_level("1*(2+3*4);".chars()));
+    // println!("{:?}", top_level("1+2+3*4+5+2+6;".chars()));
+
+    let parse_digit = vec![
+        parser::Parser::new(match_literal_str("1")),
+        parser::Parser::new(match_literal_str("2")),
+        parser::Parser::new(match_literal_str("3")),
+        parser::Parser::new(match_literal_str("3")),
+        parser::Parser::new(match_literal_str("4")),
+        parser::Parser::new(match_literal_str("5")),
+        parser::Parser::new(match_literal_str("6")),
+        parser::Parser::new(match_literal_str("7")),
+        parser::Parser::new(match_literal_str("8")),
+        parser::Parser::new(match_literal_str("9")),
+        parser::Parser::new(match_literal_str("0")),
+    ]
+    .iter()
+    .fold(
+        parser::Parser::new(match_literal_str("0")),
+        |x: Parser<Chars, Chars>, y| x.or_else::<Parser<Chars, Chars>>(y.clone()),
+    );
+    let parse_digits = parse_digit.clone().one_or_more();
+
+    let parse_natural_numbers = parse_digits.clone().transform(|s| {
+        let mut digits = String::from("");
+        for digit in s {
+            digits.push_str(digit.as_str());
+        }
+        //    println!("digits = {:?}", digits);
+        digits.parse::<i32>().unwrap()
+    });
+
+    let mut top_level_s = Parser::new(|x : Chars| -> ParseResult<Chars,i32>{ Err("not implemented yet".to_string())});
+    let mut expression_s = Parser::new(|x : Chars| -> ParseResult<Chars,i32>{Err("not implemented yet".to_string())});
+    let mut term_s = Parser::new(|x : Chars| -> ParseResult<Chars,i32>{      Err("not implemented yet".to_string())});
+    let mut factor_s = Parser::new(|x : Chars| -> ParseResult<Chars,i32>{    Err("not implemented yet".to_string())});
+
+
+    let mut  fctr = Triple::new(
+        parser::Parser::new(match_literal_str("(")),
+        expression_s.clone(),
+        parser::Parser::new(match_literal_str(")")),
+    ).second()
+        .or_else::<Parser<Chars, i32>>(parse_natural_numbers.clone());
+
+    let  mut trm = Pair::new(
+        factor_s.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("*"))
+                .pair(factor_s.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a * b));
+
+
+    let mut expr = Pair::new(
+        term_s.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("+"))
+                .pair(trm.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a + b));
+
+
+    let mut toplevel = expression_s.clone()
+        .pair(Parser::<Chars, Chars>::match_literal(";".chars()))
+        .first();
+
+    
+    std::mem::swap(&mut top_level_s, &mut toplevel);
+    std::mem::swap(&mut expression_s, &mut expr);
+    std::mem::swap(&mut factor_s, &mut fctr);
+    std::mem::swap(&mut term_s, &mut trm);
+    
+    let mut  fctr = Triple::new(
+        parser::Parser::new(match_literal_str("(")),
+        expr.clone(),
+        parser::Parser::new(match_literal_str(")")),
+    ).second()
+        .or_else::<Parser<Chars, i32>>(parse_natural_numbers.clone());
+
+    let  mut trm = Pair::new(
+        fctr.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("*"))
+                .pair(fctr.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a * b));
+
+
+    let mut expr = Pair::new(
+        trm.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("+"))
+                .pair(trm.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a + b));
+
+
+    let mut toplevel = expr.clone()
+        .pair(Parser::<Chars, Chars>::match_literal(";".chars()))
+        .first();
+
+    
+    std::mem::swap(&mut toplevel , &mut top_level_s);
+    std::mem::swap(&mut expr , &mut expression_s);
+    std::mem::swap(&mut fctr , &mut factor_s);
+    std::mem::swap(&mut trm , &mut term_s);
+
+    let mut  fctr = Triple::new(
+        parser::Parser::new(match_literal_str("(")),
+        expression_s.clone(),
+        parser::Parser::new(match_literal_str(")")),
+    ).second()
+        .or_else::<Parser<Chars, i32>>(parse_natural_numbers.clone());
+
+    let  mut trm = Pair::new(
+        factor_s.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("*"))
+                .pair(factor_s.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a * b));
+
+
+    let mut expr = Pair::new(
+        term_s.clone(),
+        RepeatedParser::zero_or_more(
+            parser::Parser::new(match_literal_str("+"))
+                .pair(trm.clone())
+                .second(),
+        ),
+    )
+        .transform(|(x, y)| y.iter().fold(x, |a, b| a + b));
+
+
+    let mut toplevel = expression_s.clone()
+        .pair(Parser::<Chars, Chars>::match_literal(";".chars()))
+        .first();
+
+    
+    std::mem::swap(&mut top_level_s, &mut toplevel);
+    std::mem::swap(&mut expression_s, &mut expr);
+    std::mem::swap(&mut factor_s, &mut fctr);
+    std::mem::swap(&mut term_s, &mut trm);
+
+    // factor_s.replace(fctr.clone());
+    // term_s.replace(trm.clone());
+    // expression_s.replace(expr);
+    // term_s.replace(trm.clone());
+    // factor_s.replace(fctr);
+    // top_level_s.replace(toplevel.clone());
+
+
+    println!("{:?}", toplevel.clone().parse("1+2+3*4+6;".chars()));
+    
+    println!("{:?}", top_level_s.clone().parse("1+2+3+4+5;".chars()));
+    println!("{:?}", top_level_s.clone().parse("1+(2+3)*4;".chars()));
+    println!("{:?}", top_level_s.clone().parse("1+2+3*4+1;".chars()));
+    println!("{:?}", top_level_s.clone().parse("1*2*3*4;".chars()));
+    println!("{:?}", top_level_s.clone().parse("1*(2+3*4);".chars()));
+    println!("{:?}", top_level_s.clone().parse("1+2+3*4+5+2+6;".chars()));
+
+
 }
 
 //type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;

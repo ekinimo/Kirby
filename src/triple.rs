@@ -33,13 +33,13 @@ where
         Self {
             parser: Rc::new(move |input| match parser1.parse(input) {
                 Ok((result1, input2)) => match parser2.parse(input2) {
-                    Ok((result2, input3)) => {
-                        match parser3.parse(input3) {
-                            Ok((result3,rest)) => {Ok(((result1,result2,result3),rest))},
-                            Err(mut err) => {
-                                err.push_str("Parser Combinator : Triple parser, third parser failed \n");
-                                Err(err)
-                            }
+                    Ok((result2, input3)) => match parser3.parse(input3) {
+                        Ok((result3, rest)) => Ok(((result1, result2, result3), rest)),
+                        Err(mut err) => {
+                            err.push_str(
+                                "Parser Combinator : Triple parser, third parser failed \n",
+                            );
+                            Err(err)
                         }
                     },
                     Err(mut err) => {
@@ -53,7 +53,6 @@ where
                 }
             }),
         }
-
     }
 
     pub fn first(self) -> Parser<'a, Input, T1> {
