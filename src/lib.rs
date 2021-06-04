@@ -148,6 +148,27 @@ where
         //todo!();
         RepeatedParser::one_or_more(self)
     }
+
+    fn skip<P, T>(self, skip_parser: P) -> Parser<'a, Input, Output>
+        where
+            Self: Sized + 'a,
+            Output: 'a + Debug,
+            P: Parse<'a, Input, T> + 'a,
+            T: Debug + Clone + 'a,
+    {
+        Parser::new(move |mut input: Input| {
+            while let Ok((_, new_input)) = skip_parser.parse(input.clone()) {
+                input = new_input;
+            }
+            let (output, mut input) = self.parse(input)?;
+
+            while let Ok((_, new_input)) = skip_parser.parse(input.clone()) {
+                input = new_input;
+            }
+
+            Ok((output, input))
+        })
+    }
 }
 
 impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function

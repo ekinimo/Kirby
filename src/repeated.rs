@@ -46,7 +46,7 @@ where
         <Input as Iterator>::Item: Eq + Debug + Clone,
     {
         Self {
-            parser: Rc::new(move |mut input: Input| {
+            parser: Rc::new(move |input: Input| {
                 let (first_item, mut input) = parser.parse(input.clone())?;
                 let mut result = vec![first_item];
 
