@@ -31,7 +31,7 @@ where
             parser: Rc::new(move |input: Input| match left_parser.parse(input.clone()) {
                 Err(first_error_message) => match right_parser.parse(input) {
                     Err(second_error_message) => Err(format!(
-                        "Both {} and {} failed",
+                        "{} or {}",
                         first_error_message, second_error_message
                     )),
                     right_success => {
@@ -42,6 +42,7 @@ where
             }),
         }
     }
+
     pub fn try_left(self) -> Parser<'a, Input, Result<T1, Either<T1, T2>>> {
         self.clone().transform(move |x| x.try_into_left())
     }

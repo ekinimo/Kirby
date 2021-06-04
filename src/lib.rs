@@ -18,9 +18,20 @@ pub trait Parse<'a, Input, Output>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
-    Output: Debug + Clone,
+    Output: Debug + Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output>;
+
+    fn with_error<F>(self, error_mapper: F) -> Parser<'a, Input, Output>
+    where
+        Self: Sized + 'a,
+        F: Fn(String, Input) -> String + 'a,
+    {
+        Parser::new(move |input: Input| {
+            self.parse(input.clone())
+                .map_err(|error_message| error_mapper(error_message, input))
+        })
+    }
 
     fn transform<TransformFunction, Output2: Debug>(
         self,
