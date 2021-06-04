@@ -38,23 +38,22 @@ where
         })
     }
 
-    fn predicate<PredicateFunction>(self, pred_fn: PredicateFunction) -> Parser<'a, Input, Output>
+    fn predicate<PredicateFunction>(
+        self,
+        pred_fn: PredicateFunction,
+        error_message: String,
+    ) -> Parser<'a, Input, Output>
     where
         Self: Sized + 'a,
         Output: 'a,
         PredicateFunction: Fn(&Output) -> bool + 'a,
     {
-        Parser::new(move |input: Input| match self.parse(input.clone()) {
-            Ok((value, next_input)) => {
-                if pred_fn(&value) {
-                    Ok((value, next_input))
-                } else {
-                    Err(format!("Parser Combinator : Predicate parser failed. predicate does not hold  \n {:?} \n",input).to_string())
-                }
-            }
-            Err(mut err) => {
-                err.push_str("Parser Combinator : Predicate parser failed \n");
-                Err(err)
+        Parser::new(move |input: Input| {
+            let (value, next_input) = self.parse(input.clone())?;
+            if pred_fn(&value) {
+                Ok((value, next_input))
+            } else {
+                Err(error_message.clone())
             }
         })
     }
@@ -70,12 +69,9 @@ where
         NextParser: Parse<'a, Input, Output2> + 'a + Clone,
         F: Fn(Output) -> NextParser + 'a,
     {
-        Parser::new(move |input| match self.parse(input) {
-            Ok((result, next_input)) => f(result).parse(next_input),
-            Err(mut err) => {
-                err.push_str("Parser Combinator : new_parser_from_parse_result failed \n");
-                Err(err)
-            }
+        Parser::new(move |input| {
+            let (result, next_input) = self.parse(input)?;
+            f(result).parse(next_input)
         })
     }
 
@@ -85,10 +81,7 @@ where
         Output: 'a + Debug,
         Parser1: Parse<'a, Input, Output> + 'a,
     {
-        Parser::new(move |input: Input| match self.parse(input.clone()) {
-            res @ Ok(_) => res,
-            Err(_) => parser2.parse(input),
-        })
+        self.either(parser2).fold(|left| left, |right| right)
     }
 
     fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2>
@@ -117,12 +110,12 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn either<Parser1, Output2>(self, parser2: Parser1) -> EitherParser<'a, Input, Output, Output2>
+    fn either<Parser2, Output2>(self, parser2: Parser2) -> EitherParser<'a, Input, Output, Output2>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
         Output2: Debug + Clone + 'a,
-        Parser1: Parse<'a, Input, Output2> + 'a,
+        Parser2: Parse<'a, Input, Output2> + 'a,
     {
         EitherParser::new(self, parser2)
     }

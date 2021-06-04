@@ -22,18 +22,23 @@ where
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
 {
-    pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
+    pub fn new<P1, P2>(left_parser: P1, right_parser: P2) -> Self
     where
         P1: Parse<'a, Input, T1> + 'a,
         P2: Parse<'a, Input, T2> + 'a,
     {
         Self {
-            parser: Rc::new(move |input: Input| match parser1.parse(input.clone()) {
-                Ok((left_result, rest)) => Ok((Either::Left(left_result), rest)),
-                Err(_) => match parser2.parse(input.clone()) {
-                    Ok((right_result, remaining)) => Ok((Either::Right(right_result), remaining)),
-                    Err(_) => Err(format!("Parser Combinator : Either parser failed, remaining {:?}",input).to_string()),
+            parser: Rc::new(move |input: Input| match left_parser.parse(input.clone()) {
+                Err(first_error_message) => match right_parser.parse(input) {
+                    Err(second_error_message) => Err(format!(
+                        "Both {} and {} failed",
+                        first_error_message, second_error_message
+                    )),
+                    right_success => {
+                        right_success.map(|(output, input)| (Either::Right(output), input))
+                    }
                 },
+                left_success => left_success.map(|(output, input)| (Either::Left(output), input)),
             }),
         }
     }
@@ -59,6 +64,22 @@ where
 
     pub fn is_right(&self) -> Parser<'a, Input, bool> {
         self.clone().transform(move |x| x.is_right())
+    }
+
+    pub fn fold<Output>(
+        self,
+        left_transformation: fn(T1) -> Output,
+        right_transformation: fn(T2) -> Output,
+    ) -> Parser<'a, Input, Output>
+    where
+        <Input as Iterator>::Item: Clone + Debug + Eq,
+        Input: 'a + Clone + Debug + Iterator,
+        Output: Debug + Clone + 'a,
+    {
+        self.transform(move |either| match either {
+            Either::Left(left) => left_transformation(left),
+            Either::Right(right) => right_transformation(right),
+        })
     }
 }
 
