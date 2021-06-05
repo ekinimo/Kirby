@@ -9,8 +9,6 @@ pub struct EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Iterator + 'a,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone,
-    T2: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, Either<T1, T2>, (Error, Error)> + 'a>,
 }
@@ -19,8 +17,8 @@ impl<'a, Input, T1, T2, Error> EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone + 'a,
-    T2: Clone + 'a,
+    T1: 'a,
+    T2: 'a,
     Error: Clone + 'a,
 {
     pub fn new<P1, P2>(left_parser: P1, right_parser: P2) -> Self
@@ -47,7 +45,7 @@ where
     where
         <Input as Iterator>::Item: Clone + Eq,
         Input: 'a + Clone + Iterator,
-        Output: Clone + 'a,
+        Output: 'a,
     {
         self.transform(move |either| match either {
             Either::Left(left) => left_transformation(left),
@@ -59,8 +57,6 @@ where
 impl<'a, Input, T1, T2, Error> Parse<'a, Input, Either<T1, T2>, (Error, Error)>
     for EitherParser<'a, Input, T1, T2, Error>
 where
-    T1: Clone,
-    T2: Clone,
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
     Error: Clone + 'a,
@@ -71,25 +67,21 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub enum Either<T1, T2>
-where
-    T1: Clone,
-    T2: Clone,
-{
+pub enum Either<T1, T2> {
     Left(T1),
     Right(T2),
 }
 
-impl<T1, T2> Either<T1, T2>
-where
-    T1: Clone,
-    T2: Clone,
-{
+impl<T1, T2> Either<T1, T2> {
     pub fn is_left(&self) -> bool {
         matches!(self, Self::Left(..))
     }
 
-    pub fn as_left(&self) -> Option<T1> {
+    pub fn as_left(&self) -> Option<T1>
+    where
+        T1: Clone,
+        T2: Clone,
+    {
         if let Self::Left(v) = self {
             Some(v.clone())
         } else {
@@ -101,7 +93,11 @@ where
         matches!(self, Self::Right(..))
     }
 
-    pub fn as_right(&self) -> Option<T2> {
+    pub fn as_right(&self) -> Option<T2>
+    where
+        T1: Clone,
+        T2: Clone,
+    {
         if let Self::Right(v) = self {
             Some(v.clone())
         } else {
@@ -130,8 +126,8 @@ impl<'a, Input, T1, T2, Error> Debug for EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone + 'a,
-    T2: Clone + 'a,
+    T1: 'a,
+    T2: 'a,
 {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()

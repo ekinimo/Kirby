@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use crate::either::EitherParser;
 use crate::pair::Pair;
 use crate::parser::Parser;
@@ -18,7 +16,7 @@ pub trait Parse<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    Output: Clone + 'a,
+    Output: 'a,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error>;
@@ -41,8 +39,7 @@ where
     ) -> Parser<'a, Input, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Clone,
-        Output2: 'a + Clone,
+        Output2: 'a,
         TransformFunction: Fn(Output) -> Output2 + 'a,
     {
         Parser::new(move |input| {
@@ -77,8 +74,7 @@ where
     ) -> Parser<'a, Input, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Clone,
-        Output2: 'a + Clone,
+        Output2: 'a,
         NextParser: Parse<'a, Input, Output2, Error> + 'a + Clone,
         F: Fn(Output) -> NextParser + 'a,
     {
@@ -100,8 +96,7 @@ where
     fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: Clone + 'a,
-        Output2: Clone + 'a,
+        Output2: 'a,
         Parser1: Parse<'a, Input, Output2, Error> + 'a,
     {
         Pair::new(self, parser2)
@@ -114,10 +109,9 @@ where
     ) -> Triple<'a, Input, Output, Output2, Output3, Error>
     where
         Self: Sized + 'a,
-        Output: Clone + 'a,
-        Output2: Clone + 'a,
+        Output2: 'a,
         Parser1: Parse<'a, Input, Output2, Error> + 'a,
-        Output3: Clone + 'a,
+        Output3: 'a,
         Parser2: Parse<'a, Input, Output3, Error> + 'a,
     {
         Triple::new(self, parser2, parser3)
@@ -129,8 +123,7 @@ where
     ) -> EitherParser<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: Clone + 'a,
-        Output2: Clone + 'a,
+        Output2: 'a,
         Parser2: Parse<'a, Input, Output2, Error> + 'a,
     {
         EitherParser::new(self, parser2)
@@ -181,7 +174,7 @@ where
     Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    Output: Clone + 'a,
+    Output: 'a,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {

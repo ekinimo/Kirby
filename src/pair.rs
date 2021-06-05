@@ -9,8 +9,6 @@ pub struct Pair<'a, Input, T1, T2, Error>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone,
-    T2: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, (T1, T2), Error> + 'a>,
 }
@@ -19,8 +17,8 @@ impl<'a, Input, T1, T2, Error> Pair<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone + 'a,
-    T2: Clone + 'a,
+    T1: 'a,
+    T2: 'a,
     Error: Clone + 'a,
 {
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
@@ -48,8 +46,6 @@ where
 
 impl<'a, Input, T1, T2, Error> Parse<'a, Input, (T1, T2), Error> for Pair<'a, Input, T1, T2, Error>
 where
-    T1: Clone,
-    T2: Clone,
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
     Error: Clone + 'a,
@@ -63,8 +59,8 @@ impl<'a, Input, T1, T2, Error> Debug for Pair<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone + 'a,
-    T2: Clone + 'a,
+    T1: 'a,
+    T2: 'a,
 {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()

@@ -1,4 +1,3 @@
-use std::fmt::Debug;
 use std::rc::Rc;
 
 use crate::parser::Parser;
@@ -9,9 +8,6 @@ pub struct Triple<'a, Input, T1, T2, T3, Error>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone,
-    T2: Clone,
-    T3: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, (T1, T2, T3), Error> + 'a>,
 }
@@ -20,9 +16,9 @@ impl<'a, Input, T1, T2, T3, Error> Triple<'a, Input, T1, T2, T3, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    T1: Clone + 'a,
-    T2: Clone + 'a,
-    T3: Clone + 'a,
+    T1: 'a,
+    T2: 'a,
+    T3: 'a,
     Error: Clone + 'a,
 {
     pub fn new<P1, P2, P3>(parser1: P1, parser2: P2, parser3: P3) -> Self
@@ -56,9 +52,6 @@ where
 impl<'a, Input, T1, T2, T3, Error> Parse<'a, Input, (T1, T2, T3), Error>
     for Triple<'a, Input, T1, T2, T3, Error>
 where
-    T1: Clone,
-    T2: Clone,
-    T3: Clone,
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
     Error: Clone + 'a,

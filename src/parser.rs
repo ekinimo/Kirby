@@ -13,7 +13,6 @@ pub struct Parser<'a, Input, Output, Error>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone + 'a,
-    Output: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, Output, Error> + 'a>,
 }
@@ -22,7 +21,6 @@ impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    Output: Clone,
     Error: Clone + 'a,
 {
     pub fn new<P>(parser: P) -> Self
@@ -39,7 +37,6 @@ impl<'a, Input, Output, Error> Parse<'a, Input, Output, Error> for Parser<'a, In
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Clone,
-    Output: Clone,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
@@ -100,8 +97,7 @@ where
         _ => Err(format!(
             "Parser Combinator : match_character failed. expected input got {:?}",
             input
-        )
-        .to_string()),
+        )),
     })
 }
 
