@@ -17,8 +17,8 @@ pub type ParseResult<'a, Input, Output, Error> = Result<(Output, Input), Error>;
 pub trait Parse<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    Output: Debug + Clone + 'a,
+    <Input as Iterator>::Item: Eq + Clone,
+    Output: Clone + 'a,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error>;
@@ -35,7 +35,7 @@ where
         })
     }
 
-    fn transform<TransformFunction, Output2: Debug>(
+    fn transform<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
     ) -> Parser<'a, Input, Output2, Error>
@@ -77,8 +77,8 @@ where
     ) -> Parser<'a, Input, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Debug + Clone,
-        Output2: 'a + Debug + Clone,
+        Output: 'a + Clone,
+        Output2: 'a + Clone,
         NextParser: Parse<'a, Input, Output2, Error> + 'a + Clone,
         F: Fn(Output) -> NextParser + 'a,
     {
@@ -91,7 +91,7 @@ where
     fn or_else<Parser1>(self, parser2: Parser1) -> Parser<'a, Input, Output, (Error, Error)>
     where
         Self: Sized + 'a,
-        Output: 'a + Debug,
+        Output: 'a,
         Parser1: Parse<'a, Input, Output, Error> + 'a,
     {
         self.either(parser2).fold(|left| left, |right| right)
@@ -100,8 +100,8 @@ where
     fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: Debug + Clone + 'a,
-        Output2: Debug + Clone + 'a,
+        Output: Clone + 'a,
+        Output2: Clone + 'a,
         Parser1: Parse<'a, Input, Output2, Error> + 'a,
     {
         Pair::new(self, parser2)
@@ -114,10 +114,10 @@ where
     ) -> Triple<'a, Input, Output, Output2, Output3, Error>
     where
         Self: Sized + 'a,
-        Output: Debug + Clone + 'a,
-        Output2: Debug + Clone + 'a,
+        Output: Clone + 'a,
+        Output2: Clone + 'a,
         Parser1: Parse<'a, Input, Output2, Error> + 'a,
-        Output3: Debug + Clone + 'a,
+        Output3: Clone + 'a,
         Parser2: Parse<'a, Input, Output3, Error> + 'a,
     {
         Triple::new(self, parser2, parser3)
@@ -129,8 +129,8 @@ where
     ) -> EitherParser<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
-        Output: Debug + Clone + 'a,
-        Output2: Debug + Clone + 'a,
+        Output: Clone + 'a,
+        Output2: Clone + 'a,
         Parser2: Parse<'a, Input, Output2, Error> + 'a,
     {
         EitherParser::new(self, parser2)
@@ -139,7 +139,7 @@ where
     fn zero_or_more(self) -> RepeatedParser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Debug,
+        Output: 'a,
     {
         //todo!();
         RepeatedParser::zero_or_more(self)
@@ -148,7 +148,7 @@ where
     fn one_or_more(self) -> RepeatedParser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Debug,
+        Output: 'a,
     {
         //todo!();
         RepeatedParser::one_or_more(self)
@@ -157,9 +157,9 @@ where
     fn skip<P, T>(self, skip_parser: P) -> Parser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
-        Output: 'a + Debug,
+        Output: 'a,
         P: Parse<'a, Input, T, Error> + 'a,
-        T: Debug + Clone + 'a,
+        T: Clone + 'a,
     {
         Parser::new(move |mut input: Input| {
             while let Ok((_, new_input)) = skip_parser.parse(input.clone()) {
@@ -180,8 +180,8 @@ impl<'a, Function, Input, Output, Error> Parse<'a, Input, Output, Error> for Fun
 where
     Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    Output: Debug + Clone + 'a,
+    <Input as Iterator>::Item: Eq + Clone,
+    Output: Clone + 'a,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {

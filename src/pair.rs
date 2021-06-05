@@ -8,9 +8,9 @@ use crate::{Parse, ParseResult};
 pub struct Pair<'a, Input, T1, T2, Error>
 where
     Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone,
-    T2: Debug + Clone,
+    <Input as Iterator>::Item: Eq + Clone,
+    T1: Clone,
+    T2: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, (T1, T2), Error> + 'a>,
 }
@@ -18,9 +18,9 @@ where
 impl<'a, Input, T1, T2, Error> Pair<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
-    T2: Debug + Clone + 'a,
+    <Input as Iterator>::Item: Eq + Clone,
+    T1: Clone + 'a,
+    T2: Clone + 'a,
     Error: Clone + 'a,
 {
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
@@ -48,10 +48,10 @@ where
 
 impl<'a, Input, T1, T2, Error> Parse<'a, Input, (T1, T2), Error> for Pair<'a, Input, T1, T2, Error>
 where
-    T1: Debug + Clone,
-    T2: Debug + Clone,
+    T1: Clone,
+    T2: Clone,
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
+    <Input as Iterator>::Item: Eq + Clone,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, (T1, T2), Error> {
@@ -62,9 +62,9 @@ where
 impl<'a, Input, T1, T2, Error> Debug for Pair<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
-    T2: Debug + Clone + 'a,
+    <Input as Iterator>::Item: Eq + Clone,
+    T1: Clone + 'a,
+    T2: Clone + 'a,
 {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()

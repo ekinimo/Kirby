@@ -7,8 +7,8 @@ use crate::{Parse, ParseResult};
 pub struct RepeatedParser<'a, Input, T1, Error>
 where
     Input: Iterator + 'a,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone,
+    <Input as Iterator>::Item: Eq + Clone,
+    T1: Clone,
 {
     parser: Rc<dyn Parse<'a, Input, Vec<T1>, Error> + 'a>,
 }
@@ -16,8 +16,8 @@ where
 impl<'a, Input, T1, Error> RepeatedParser<'a, Input, T1, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
-    T1: Debug + Clone + 'a,
+    <Input as Iterator>::Item: Eq + Clone,
+    T1: Clone + 'a,
     Error: Clone + 'a,
 {
     pub fn zero_or_more<Parser>(parser: Parser) -> Self
@@ -42,7 +42,7 @@ where
     where
         Parser: Parse<'a, Input, T1, Error> + 'a,
         Input: Clone + 'a + Iterator,
-        <Input as Iterator>::Item: Eq + Debug + Clone,
+        <Input as Iterator>::Item: Eq + Clone,
     {
         Self {
             parser: Rc::new(move |input: Input| {
@@ -69,9 +69,9 @@ where
 
 impl<'a, Input, T1, Error> Parse<'a, Input, Vec<T1>, Error> for RepeatedParser<'a, Input, T1, Error>
 where
-    T1: Debug + Clone,
+    T1: Clone,
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
+    <Input as Iterator>::Item: Eq + Clone,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>, Error> {
