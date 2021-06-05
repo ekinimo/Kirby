@@ -47,10 +47,7 @@ where
         Input: 'a + Clone + Iterator,
         Output: 'a,
     {
-        self.transform(move |either| match either {
-            Either::Left(left) => left_transformation(left),
-            Either::Right(right) => right_transformation(right),
-        })
+        self.transform(move |either| either.fold(left_transformation, right_transformation))
     }
 }
 
@@ -118,6 +115,13 @@ impl<T1, T2> Either<T1, T2> {
             Ok(v)
         } else {
             Err(self)
+        }
+    }
+
+    pub fn fold<T>(self, left_transformer: fn(T1) -> T, right_transformer: fn(T2) -> T) -> T {
+        match self {
+            Either::Left(left) => left_transformer(left),
+            Either::Right(right) => right_transformer(right),
         }
     }
 }
