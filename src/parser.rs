@@ -11,7 +11,7 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Parser<'a, Input, Output, Error>
 where
-    Input: Debug + 'a + Iterator,
+    Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone + 'a,
     Output: Debug + Clone,
 {
@@ -20,7 +20,7 @@ where
 
 impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone,
     Error: Clone + 'a,
@@ -33,66 +33,76 @@ where
             parser: Rc::from(parser),
         }
     }
-
-    pub fn match_literal(to_matched: Input) -> Parser<'a, Input, Input, String> {
-        Parser::new(move |mut input: Input| {
-            let l = to_matched.clone().count();
-            match input
-                .clone()
-                .take(l)
-                .zip(to_matched.clone())
-                .all(|(x, y)| x == y)
-            {
-                true => {
-                    for _ in 0..l {
-                        input.next();
-                    }
-                    Ok((to_matched.to_owned(), input))
-                }
-                false => Err(format!(
-                    "Parser Combinator : match_literal failed. expected {:?} got {:?}",
-                    to_matched, input
-                )
-                .to_string()),
-            }
-        })
-    }
-
-    pub fn match_anything() -> Parser<'a, Input, <Input as Iterator>::Item, String> {
-        Parser::new(move |mut input: Input| match input.next() {
-            Some(x) => Ok((x, input)),
-            None => Err(format!(
-                "Parser Combinator : match_anything failed. expected input got {:?}",
-                input
-            )
-            .to_string()),
-        })
-    }
-
-    pub fn match_character(
-        character: <Input as Iterator>::Item,
-    ) -> Parser<'a, Input, <Input as Iterator>::Item, String> {
-        Parser::new(move |mut input: Input| match input.next() {
-            Some(x) if x == character => Ok((x, input)),
-            _ => Err(format!(
-                "Parser Combinator : match_character failed. expected input got {:?}",
-                input
-            )
-            .to_string()),
-        })
-    }
 }
 
 impl<'a, Input, Output, Error> Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
 where
-    Output: Debug + Clone,
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
+    Output: Debug + Clone,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
         self.parser.parse(input)
     }
+}
+
+pub fn match_literal<'a, Input>(to_matched: Input) -> Parser<'a, Input, Input, String>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| {
+        let l = to_matched.clone().count();
+        match input
+            .clone()
+            .take(l)
+            .zip(to_matched.clone())
+            .all(|(x, y)| x == y)
+        {
+            true => {
+                for _ in 0..l {
+                    input.next();
+                }
+                Ok((to_matched.to_owned(), input))
+            }
+            false => Err(format!(
+                "Parser Combinator : match_literal failed. expected {:?} got {:?}",
+                to_matched, input
+            )),
+        }
+    })
+}
+
+pub fn match_anything<'a, Input>() -> Parser<'a, Input, <Input as Iterator>::Item, String>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| match input.next() {
+        Some(x) => Ok((x, input)),
+        None => Err(format!(
+            "Parser Combinator : match_anything failed. expected input got {:?}",
+            input
+        )),
+    })
+}
+
+pub fn match_character<'a, Input>(
+    character: <Input as Iterator>::Item,
+) -> Parser<'a, Input, <Input as Iterator>::Item, String>
+where
+    Input: Debug + Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq + Debug + Clone,
+{
+    Parser::new(move |mut input: Input| match input.next() {
+        Some(x) if x == character => Ok((x, input)),
+        _ => Err(format!(
+            "Parser Combinator : match_character failed. expected input got {:?}",
+            input
+        )
+        .to_string()),
+    })
 }
 
 pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>, String> {

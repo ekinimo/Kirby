@@ -7,7 +7,7 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Triple<'a, Input, T1, T2, T3, Error>
 where
-    Input: Debug + 'a + Iterator,
+    Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
     T2: Debug + Clone,
@@ -18,7 +18,7 @@ where
 
 impl<'a, Input, T1, T2, T3, Error> Triple<'a, Input, T1, T2, T3, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
@@ -53,12 +53,13 @@ where
     }
 }
 
-impl<'a, Input, T1, T2, T3, Error> Parse<'a, Input, (T1, T2, T3), Error> for Triple<'a, Input, T1, T2, T3, Error>
+impl<'a, Input, T1, T2, T3, Error> Parse<'a, Input, (T1, T2, T3), Error>
+    for Triple<'a, Input, T1, T2, T3, Error>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
     T3: Debug + Clone,
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Error: Clone + 'a,
 {

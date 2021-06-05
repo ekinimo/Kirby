@@ -7,7 +7,7 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Pair<'a, Input, T1, T2, Error>
 where
-    Input: Debug + 'a + Iterator,
+    Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
     T2: Debug + Clone,
@@ -17,7 +17,7 @@ where
 
 impl<'a, Input, T1, T2, Error> Pair<'a, Input, T1, T2, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
@@ -50,7 +50,7 @@ impl<'a, Input, T1, T2, Error> Parse<'a, Input, (T1, T2), Error> for Pair<'a, In
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Error: Clone + 'a,
 {
@@ -61,7 +61,7 @@ where
 
 impl<'a, Input, T1, T2, Error> Debug for Pair<'a, Input, T1, T2, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,

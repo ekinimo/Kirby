@@ -7,7 +7,7 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct EitherParser<'a, Input, T1, T2, Error>
 where
-    Input: Debug + Iterator + 'a,
+    Input: Iterator + 'a,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
     T2: Debug + Clone,
@@ -17,7 +17,7 @@ where
 
 impl<'a, Input, T1, T2, Error> EitherParser<'a, Input, T1, T2, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
@@ -46,7 +46,7 @@ where
     ) -> Parser<'a, Input, Output, (Error, Error)>
     where
         <Input as Iterator>::Item: Clone + Debug + Eq,
-        Input: 'a + Clone + Debug + Iterator,
+        Input: 'a + Clone + Iterator,
         Output: Debug + Clone + 'a,
     {
         self.transform(move |either| match either {
@@ -56,13 +56,14 @@ where
     }
 }
 
-impl<'a, Input, T1, T2, Error> Parse<'a, Input, Either<T1, T2>, (Error, Error)> for EitherParser<'a, Input, T1, T2, Error>
+impl<'a, Input, T1, T2, Error> Parse<'a, Input, Either<T1, T2>, (Error, Error)>
+    for EitherParser<'a, Input, T1, T2, Error>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
-Error: Clone + 'a,
+    Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error, Error)> {
         self.parser.parse(input)
@@ -127,7 +128,7 @@ where
 
 impl<'a, Input, T1, T2, Error> Debug for EitherParser<'a, Input, T1, T2, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,

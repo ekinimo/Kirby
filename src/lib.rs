@@ -16,7 +16,7 @@ pub type ParseResult<'a, Input, Output, Error> = Result<(Output, Input), Error>;
 
 pub trait Parse<'a, Input, Output, Error>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone + 'a,
     Error: Clone + 'a,
@@ -123,7 +123,10 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn either<Parser2, Output2>(self, parser2: Parser2) -> EitherParser<'a, Input, Output, Output2, Error>
+    fn either<Parser2, Output2>(
+        self,
+        parser2: Parser2,
+    ) -> EitherParser<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
@@ -152,11 +155,11 @@ where
     }
 
     fn skip<P, T>(self, skip_parser: P) -> Parser<'a, Input, Output, Error>
-        where
-            Self: Sized + 'a,
-            Output: 'a + Debug,
-            P: Parse<'a, Input, T, Error> + 'a,
-            T: Debug + Clone + 'a,
+    where
+        Self: Sized + 'a,
+        Output: 'a + Debug,
+        P: Parse<'a, Input, T, Error> + 'a,
+        T: Debug + Clone + 'a,
     {
         Parser::new(move |mut input: Input| {
             while let Ok((_, new_input)) = skip_parser.parse(input.clone()) {
@@ -176,7 +179,7 @@ where
 impl<'a, Function, Input, Output, Error> Parse<'a, Input, Output, Error> for Function
 where
     Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone + 'a,
     Error: Clone + 'a,

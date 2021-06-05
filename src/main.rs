@@ -1,7 +1,7 @@
 use std::str::Chars;
 
 use parser_combinator::pair::Pair;
-use parser_combinator::parser::{match_literal_str, Parser};
+use parser_combinator::parser::{match_literal, match_literal_str, Parser};
 use parser_combinator::repeated::RepeatedParser;
 use parser_combinator::triple::Triple;
 use parser_combinator::{parser, Parse, ParseResult};
@@ -19,41 +19,33 @@ fn main() {
 
 //type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 
-pub fn top_level<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
+pub fn top_level(input: Chars) -> ParseResult<Chars, i32, String> {
     expression
-        .pair(Parser::<Chars<'a>, Chars<'a>, String>::match_literal(";".chars()))
+        .pair(match_literal(";".chars()))
         .first()
         .parse(input)
 }
 
-pub fn expression<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
+pub fn expression(input: Chars) -> ParseResult<Chars, i32, String> {
     Pair::new(
         term,
-        RepeatedParser::zero_or_more(
-            Parser::<Chars<'a>, Chars<'a>, String>::match_literal("+".chars())
-                .pair(term)
-                .second(),
-        ),
+        RepeatedParser::zero_or_more(match_literal("+".chars()).pair(term).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
     .parse(input.clone())
 }
 
-pub fn term<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
+pub fn term(input: Chars) -> ParseResult<Chars, i32, String> {
     let res = Pair::new(
         factor,
-        RepeatedParser::zero_or_more(
-            Parser::<Chars<'a>, Chars<'a>, String>::match_literal("*".chars())
-                .pair(factor)
-                .second(),
-        ),
+        RepeatedParser::zero_or_more(match_literal("*".chars()).pair(factor).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
     .parse(input.clone());
     res
 }
 
-pub fn factor<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
+pub fn factor(input: Chars) -> ParseResult<Chars, i32, String> {
     //println!("factor = {:?}", input);
     let parse_digit = vec![
         parser::Parser::new(match_literal_str("1")),
@@ -71,7 +63,9 @@ pub fn factor<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
     .iter()
     .fold(
         parser::Parser::new(match_literal_str("0")),
-        |x: Parser<Chars, Chars, String>, y| x.or_else(y.clone()).with_error(|_, _| "error".to_string()),
+        |x: Parser<Chars, Chars, String>, y| {
+            x.or_else(y.clone()).with_error(|_, _| "error".to_string())
+        },
     );
     let parse_digits = parse_digit.clone().one_or_more();
 
@@ -85,13 +79,13 @@ pub fn factor<'a>(input: Chars<'a>) -> ParseResult<'a, Chars<'a>, i32, String> {
     });
 
     Triple::new(
-        Parser::<Chars<'a>, Chars<'a>, String>::match_literal("(".chars()),
+        match_literal("(".chars()),
         expression,
-        Parser::<Chars<'a>, Chars<'a>, String>::match_literal(")".chars()),
+        match_literal(")".chars()),
     )
     .second()
     .or_else(parse_natural_numbers.clone())
-        .with_error(|(error1, error2), input| error1)
+    .with_error(|(error1, _), _| error1)
     .parse(input.clone())
 }
 
