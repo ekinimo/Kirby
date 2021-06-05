@@ -5,73 +5,45 @@ use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct EitherParser<'a, Input, T1, T2>
+pub struct EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Debug + Iterator + 'a,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
     T2: Debug + Clone,
 {
-    parser: Rc<dyn Parse<'a, Input, Either<T1, T2>> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, Either<T1, T2>, (Error, Error)> + 'a>,
 }
 
-impl<'a, Input, T1, T2> EitherParser<'a, Input, T1, T2>
+impl<'a, Input, T1, T2, Error> EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
     T2: Debug + Clone + 'a,
+    Error: Clone + 'a,
 {
     pub fn new<P1, P2>(left_parser: P1, right_parser: P2) -> Self
     where
-        P1: Parse<'a, Input, T1> + 'a,
-        P2: Parse<'a, Input, T2> + 'a,
+        P1: Parse<'a, Input, T1, Error> + 'a,
+        P2: Parse<'a, Input, T2, Error> + 'a,
     {
         Self {
             parser: Rc::new(move |input: Input| match left_parser.parse(input.clone()) {
                 Err(first_error_message) => match right_parser.parse(input) {
-                    Err(second_error_message) => Err(format!(
-                        "{} or {}",
-                        first_error_message, second_error_message
-                    )),
-                    right_success => {
-                        right_success.map(|(output, input)| (Either::Right(output), input))
-                    }
+                    Err(second_error_message) => Err((first_error_message, second_error_message)),
+                    Ok((output, input)) => Ok((Either::Right(output), input)),
                 },
-                left_success => left_success.map(|(output, input)| (Either::Left(output), input)),
+                Ok((output, input)) => Ok((Either::Left(output), input)),
             }),
         }
-    }
-
-    pub fn try_left(self) -> Parser<'a, Input, Result<T1, Either<T1, T2>>> {
-        self.clone().transform(move |x| x.try_into_left())
-    }
-
-    pub fn try_right(self) -> Parser<'a, Input, Result<T2, Either<T1, T2>>> {
-        self.clone().transform(move |x| x.try_into_right())
-    }
-
-    pub fn as_left(&self) -> Parser<'a, Input, Option<T1>> {
-        self.clone().transform(move |x| x.as_left())
-    }
-
-    pub fn as_right(&self) -> Parser<'a, Input, Option<T2>> {
-        self.clone().transform(move |x| x.as_right())
-    }
-
-    pub fn is_left(&self) -> Parser<'a, Input, bool> {
-        self.clone().transform(move |x| x.is_left())
-    }
-
-    pub fn is_right(&self) -> Parser<'a, Input, bool> {
-        self.clone().transform(move |x| x.is_right())
     }
 
     pub fn fold<Output>(
         self,
         left_transformation: fn(T1) -> Output,
         right_transformation: fn(T2) -> Output,
-    ) -> Parser<'a, Input, Output>
+    ) -> Parser<'a, Input, Output, (Error, Error)>
     where
         <Input as Iterator>::Item: Clone + Debug + Eq,
         Input: 'a + Clone + Debug + Iterator,
@@ -84,14 +56,15 @@ where
     }
 }
 
-impl<'a, Input, T1, T2> Parse<'a, Input, Either<T1, T2>> for EitherParser<'a, Input, T1, T2>
+impl<'a, Input, T1, T2, Error> Parse<'a, Input, Either<T1, T2>, (Error, Error)> for EitherParser<'a, Input, T1, T2, Error>
 where
     T1: Debug + Clone,
     T2: Debug + Clone,
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
+Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error, Error)> {
         self.parser.parse(input)
     }
 }
@@ -111,7 +84,6 @@ where
     T1: Debug + Clone,
     T2: Debug + Clone,
 {
-    /// Returns `true` if the either_type is [`Left`].
     pub fn is_left(&self) -> bool {
         matches!(self, Self::Left(..))
     }
@@ -124,7 +96,6 @@ where
         }
     }
 
-    /// Returns `true` if the either_type is [`Right`].
     pub fn is_right(&self) -> bool {
         matches!(self, Self::Right(..))
     }
@@ -154,7 +125,7 @@ where
     }
 }
 
-impl<'a, Input, T1, T2> Debug for EitherParser<'a, Input, T1, T2>
+impl<'a, Input, T1, T2, Error> Debug for EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,

@@ -4,24 +4,25 @@ use std::rc::Rc;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct RepeatedParser<'a, Input, T1>
+pub struct RepeatedParser<'a, Input, T1, Error>
 where
     Input: Debug + Iterator + 'a,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone,
 {
-    parser: Rc<dyn Parse<'a, Input, Vec<T1>> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, Vec<T1>, Error> + 'a>,
 }
 
-impl<'a, Input, T1> RepeatedParser<'a, Input, T1>
+impl<'a, Input, T1, Error> RepeatedParser<'a, Input, T1, Error>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     T1: Debug + Clone + 'a,
+    Error: Clone + 'a,
 {
     pub fn zero_or_more<Parser>(parser: Parser) -> Self
     where
-        Parser: Parse<'a, Input, T1> + 'a,
+        Parser: Parse<'a, Input, T1, Error> + 'a,
         Input: Debug + Clone + 'a + Iterator,
         <Input as Iterator>::Item: Eq + Debug + Clone,
     {
@@ -41,7 +42,7 @@ where
 
     pub fn one_or_more<Parser>(parser: Parser) -> Self
     where
-        Parser: Parse<'a, Input, T1> + 'a,
+        Parser: Parse<'a, Input, T1, Error> + 'a,
         Input: Debug + Clone + 'a + Iterator,
         <Input as Iterator>::Item: Eq + Debug + Clone,
     {
@@ -68,14 +69,14 @@ where
     // }
 }
 
-impl<'a, Input, T1> Parse<'a, Input, Vec<T1>> for RepeatedParser<'a, Input, T1>
+impl<'a, Input, T1, Error> Parse<'a, Input, Vec<T1>, Error> for RepeatedParser<'a, Input, T1, Error>
 where
     T1: Debug + Clone,
-
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
+    Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>, Error> {
         self.parser.parse(input)
     }
 }

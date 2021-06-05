@@ -12,20 +12,22 @@ pub mod parser;
 pub mod repeated;
 pub mod triple;
 
-pub type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
+pub type ParseResult<'a, Input, Output, Error> = Result<(Output, Input), Error>;
 
-pub trait Parse<'a, Input, Output>
+pub trait Parse<'a, Input, Output, Error>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone + 'a,
+    Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output>;
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error>;
 
-    fn with_error<F>(self, error_mapper: F) -> Parser<'a, Input, Output>
+    fn with_error<F, Error2>(self, error_mapper: F) -> Parser<'a, Input, Output, Error2>
     where
         Self: Sized + 'a,
-        F: Fn(String, Input) -> String + 'a,
+        F: Fn(Error, Input) -> Error2 + 'a,
+        Error2: Clone,
     {
         Parser::new(move |input: Input| {
             self.parse(input.clone())
@@ -36,7 +38,7 @@ where
     fn transform<TransformFunction, Output2: Debug>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, Output2>
+    ) -> Parser<'a, Input, Output2, Error>
     where
         Self: Sized + 'a,
         Output: 'a + Clone,
@@ -49,11 +51,11 @@ where
         })
     }
 
-    fn predicate<PredicateFunction>(
+    fn validate<PredicateFunction>(
         self,
-        pred_fn: PredicateFunction,
-        error_message: String,
-    ) -> Parser<'a, Input, Output>
+        predicate: PredicateFunction,
+        error_message: Error,
+    ) -> Parser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
         Output: 'a,
@@ -61,7 +63,7 @@ where
     {
         Parser::new(move |input: Input| {
             let (value, next_input) = self.parse(input.clone())?;
-            if pred_fn(&value) {
+            if predicate(&value) {
                 Ok((value, next_input))
             } else {
                 Err(error_message.clone())
@@ -72,12 +74,12 @@ where
     fn new_parser_from_parse_result<F, NextParser, Output2>(
         self,
         f: F,
-    ) -> Parser<'a, Input, Output2>
+    ) -> Parser<'a, Input, Output2, Error>
     where
         Self: Sized + 'a,
         Output: 'a + Debug + Clone,
         Output2: 'a + Debug + Clone,
-        NextParser: Parse<'a, Input, Output2> + 'a + Clone,
+        NextParser: Parse<'a, Input, Output2, Error> + 'a + Clone,
         F: Fn(Output) -> NextParser + 'a,
     {
         Parser::new(move |input| {
@@ -86,21 +88,21 @@ where
         })
     }
 
-    fn or_else<Parser1>(self, parser2: Parser1) -> Parser<'a, Input, Output>
+    fn or_else<Parser1>(self, parser2: Parser1) -> Parser<'a, Input, Output, (Error, Error)>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
-        Parser1: Parse<'a, Input, Output> + 'a,
+        Parser1: Parse<'a, Input, Output, Error> + 'a,
     {
         self.either(parser2).fold(|left| left, |right| right)
     }
 
-    fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2>
+    fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
         Output2: Debug + Clone + 'a,
-        Parser1: Parse<'a, Input, Output2> + 'a,
+        Parser1: Parse<'a, Input, Output2, Error> + 'a,
     {
         Pair::new(self, parser2)
     }
@@ -109,29 +111,29 @@ where
         self,
         parser2: Parser1,
         parser3: Parser2,
-    ) -> Triple<'a, Input, Output, Output2, Output3>
+    ) -> Triple<'a, Input, Output, Output2, Output3, Error>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
         Output2: Debug + Clone + 'a,
-        Parser1: Parse<'a, Input, Output2> + 'a,
+        Parser1: Parse<'a, Input, Output2, Error> + 'a,
         Output3: Debug + Clone + 'a,
-        Parser2: Parse<'a, Input, Output3> + 'a,
+        Parser2: Parse<'a, Input, Output3, Error> + 'a,
     {
         Triple::new(self, parser2, parser3)
     }
 
-    fn either<Parser2, Output2>(self, parser2: Parser2) -> EitherParser<'a, Input, Output, Output2>
+    fn either<Parser2, Output2>(self, parser2: Parser2) -> EitherParser<'a, Input, Output, Output2, Error>
     where
         Self: Sized + 'a,
         Output: Debug + Clone + 'a,
         Output2: Debug + Clone + 'a,
-        Parser2: Parse<'a, Input, Output2> + 'a,
+        Parser2: Parse<'a, Input, Output2, Error> + 'a,
     {
         EitherParser::new(self, parser2)
     }
 
-    fn zero_or_more(self) -> RepeatedParser<'a, Input, Output>
+    fn zero_or_more(self) -> RepeatedParser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
@@ -140,7 +142,7 @@ where
         RepeatedParser::zero_or_more(self)
     }
 
-    fn one_or_more(self) -> RepeatedParser<'a, Input, Output>
+    fn one_or_more(self) -> RepeatedParser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
         Output: 'a + Debug,
@@ -149,11 +151,11 @@ where
         RepeatedParser::one_or_more(self)
     }
 
-    fn skip<P, T>(self, skip_parser: P) -> Parser<'a, Input, Output>
+    fn skip<P, T>(self, skip_parser: P) -> Parser<'a, Input, Output, Error>
         where
             Self: Sized + 'a,
             Output: 'a + Debug,
-            P: Parse<'a, Input, T> + 'a,
+            P: Parse<'a, Input, T, Error> + 'a,
             T: Debug + Clone + 'a,
     {
         Parser::new(move |mut input: Input| {
@@ -171,14 +173,15 @@ where
     }
 }
 
-impl<'a, Function, Input, Output> Parse<'a, Input, Output> for Function
+impl<'a, Function, Input, Output, Error> Parse<'a, Input, Output, Error> for Function
 where
-    Function: Fn(Input) -> ParseResult<'a, Input, Output> + 'a,
+    Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone + 'a,
+    Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
         self(input)
     }
 }

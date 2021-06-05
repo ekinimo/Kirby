@@ -9,31 +9,32 @@ use crate::{Parse, ParseResult};
 // }
 
 #[derive(Clone)]
-pub struct Parser<'a, Input, Output>
+pub struct Parser<'a, Input, Output, Error>
 where
     Input: Debug + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone + 'a,
     Output: Debug + Clone,
 {
-    parser: Rc<dyn Parse<'a, Input, Output> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, Output, Error> + 'a>,
 }
 
-impl<'a, Input, Output> Parser<'a, Input, Output>
+impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
     Output: Debug + Clone,
+    Error: Clone + 'a,
 {
     pub fn new<P>(parser: P) -> Self
     where
-        P: Parse<'a, Input, Output> + 'a,
+        P: Parse<'a, Input, Output, Error> + 'a,
     {
         Self {
             parser: Rc::from(parser),
         }
     }
 
-    pub fn match_literal(to_matched: Input) -> Parser<'a, Input, Input> {
+    pub fn match_literal(to_matched: Input) -> Parser<'a, Input, Input, String> {
         Parser::new(move |mut input: Input| {
             let l = to_matched.clone().count();
             match input
@@ -57,7 +58,7 @@ where
         })
     }
 
-    pub fn match_anything() -> Parser<'a, Input, <Input as Iterator>::Item> {
+    pub fn match_anything() -> Parser<'a, Input, <Input as Iterator>::Item, String> {
         Parser::new(move |mut input: Input| match input.next() {
             Some(x) => Ok((x, input)),
             None => Err(format!(
@@ -70,7 +71,7 @@ where
 
     pub fn match_character(
         character: <Input as Iterator>::Item,
-    ) -> Parser<'a, Input, <Input as Iterator>::Item> {
+    ) -> Parser<'a, Input, <Input as Iterator>::Item, String> {
         Parser::new(move |mut input: Input| match input.next() {
             Some(x) if x == character => Ok((x, input)),
             _ => Err(format!(
@@ -82,18 +83,19 @@ where
     }
 }
 
-impl<'a, Input, Output> Parse<'a, Input, Output> for Parser<'a, Input, Output>
+impl<'a, Input, Output, Error> Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
 where
     Output: Debug + Clone,
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq + Debug + Clone,
+    Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output> {
+    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
         self.parser.parse(input)
     }
 }
 
-pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>> {
+pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>, String> {
     move |input1: Chars<'a>| {
         let input = input1.clone().collect::<String>();
         match input.as_str().get(0..expected.len()) {
