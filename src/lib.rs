@@ -15,7 +15,7 @@ pub type ParseResult<'a, Input, Output, Error> = Result<(Output, Input), Error>;
 pub trait Parse<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     Output: 'a,
     Error: Clone + 'a,
 {
@@ -173,7 +173,7 @@ impl<'a, Function, Input, Output, Error> Parse<'a, Input, Output, Error> for Fun
 where
     Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     Output: 'a,
     Error: Clone + 'a,
 {

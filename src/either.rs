@@ -8,7 +8,7 @@ use crate::{Parse, ParseResult};
 pub struct EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Iterator + 'a,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
 {
     parser: Rc<dyn Parse<'a, Input, Either<T1, T2>, (Error, Error)> + 'a>,
 }
@@ -16,7 +16,7 @@ where
 impl<'a, Input, T1, T2, Error> EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
     Error: Clone + 'a,
@@ -43,7 +43,7 @@ where
         right_transformation: fn(T2) -> Output,
     ) -> Parser<'a, Input, Output, (Error, Error)>
     where
-        <Input as Iterator>::Item: Clone + Eq,
+        <Input as Iterator>::Item: Eq,
         Input: 'a + Clone + Iterator,
         Output: 'a,
     {
@@ -58,7 +58,7 @@ impl<'a, Input, T1, T2, Error> Parse<'a, Input, Either<T1, T2>, (Error, Error)>
     for EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error, Error)> {
@@ -125,7 +125,7 @@ impl<T1, T2> Either<T1, T2> {
 impl<'a, Input, T1, T2, Error> Debug for EitherParser<'a, Input, T1, T2, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
 {

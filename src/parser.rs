@@ -12,7 +12,7 @@ use crate::{Parse, ParseResult};
 pub struct Parser<'a, Input, Output, Error>
 where
     Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone + 'a,
+    <Input as Iterator>::Item: Eq + 'a,
 {
     parser: Rc<dyn Parse<'a, Input, Output, Error> + 'a>,
 }
@@ -20,7 +20,7 @@ where
 impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
 {
     pub fn new<P>(parser: P) -> Self
@@ -36,7 +36,7 @@ where
 impl<'a, Input, Output, Error> Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Clone,
+    <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
@@ -47,7 +47,7 @@ where
 pub fn match_literal<'a, Input>(to_matched: Input) -> Parser<'a, Input, Input, String>
 where
     Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
+    <Input as Iterator>::Item: Eq,
 {
     Parser::new(move |mut input: Input| {
         let l = to_matched.clone().count();
@@ -74,7 +74,7 @@ where
 pub fn match_anything<'a, Input>() -> Parser<'a, Input, <Input as Iterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
+    <Input as Iterator>::Item: Eq,
 {
     Parser::new(move |mut input: Input| match input.next() {
         Some(x) => Ok((x, input)),
@@ -90,7 +90,7 @@ pub fn match_character<'a, Input>(
 ) -> Parser<'a, Input, <Input as Iterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq + Debug + Clone,
+    <Input as Iterator>::Item: Eq,
 {
     Parser::new(move |mut input: Input| match input.next() {
         Some(x) if x == character => Ok((x, input)),
