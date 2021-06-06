@@ -63,7 +63,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::match_character;
+    use crate::parser::{match_character, match_literal};
     use crate::triple::Triple;
     use crate::Parse;
 
@@ -155,6 +155,27 @@ mod tests {
             Err((left, right)) => {
                 assert_eq!(left, "expected 'a', got 'b'".to_string());
                 assert_eq!(right, "expected 'z', got 'b'".to_string());
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn failing_triple_match_literal() {
+        let under_test = Triple::new(
+            match_literal("a".chars()),
+            match_literal("b".chars()),
+            match_literal("c".chars()),
+        );
+
+        let result = under_test.parse("ab".chars());
+
+        match result {
+            Err(message) => {
+                assert_eq!(
+                    message,
+                    "match_literal failed: expected Chars(['c']), got Chars([])".to_string()
+                );
             }
             _ => panic!("failed: {:?}", result),
         }

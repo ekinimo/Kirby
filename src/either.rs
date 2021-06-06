@@ -143,7 +143,6 @@ mod tests {
     use crate::either::{Either, EitherParser};
     use crate::parser::match_character;
     use crate::Parse;
-    use std::str::Chars;
 
     #[test]
     fn either_with_failing_left_parser() {
