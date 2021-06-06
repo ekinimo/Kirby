@@ -84,11 +84,12 @@ where
         })
     }
 
-    fn or_else<Parser1>(self, parser2: Parser1) -> Parser<'a, Input, Output, (Error, Error)>
+    fn or_else<Parser2, Error2>(self, parser2: Parser2) -> Parser<'a, Input, Output, (Error, Error2)>
     where
         Self: Sized + 'a,
         Output: 'a,
-        Parser1: Parse<'a, Input, Output, Error> + 'a,
+        Parser2: Parse<'a, Input, Output, Error2> + 'a,
+        Error2: Clone
     {
         self.either(parser2).fold(|left| left, |right| right)
     }
@@ -117,14 +118,15 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn either<Parser2, Output2>(
+    fn either<Parser2, Output2, Error2>(
         self,
         parser2: Parser2,
-    ) -> EitherParser<'a, Input, Output, Output2, Error>
+    ) -> EitherParser<'a, Input, Output, Output2, Error, Error2>
     where
         Self: Sized + 'a,
         Output2: 'a,
-        Parser2: Parse<'a, Input, Output2, Error> + 'a,
+        Parser2: Parse<'a, Input, Output2, Error2> + 'a,
+        Error2: Clone
     {
         EitherParser::new(self, parser2)
     }
