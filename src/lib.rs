@@ -1,4 +1,4 @@
-use crate::either::EitherParser;
+use crate::either::{EitherParser, Either};
 use crate::pair::Pair;
 use crate::parser::Parser;
 use crate::repeated::RepeatedParser;
@@ -158,6 +158,19 @@ where
         RepeatedParser::one_or_more(self)
     }
 
+    fn separated_by<P, Output2, Error2>(self, separator: P) -> Pair<'a, Input, Output, Vec<(Output2, Output)>, Error, Either<Error2, Error>>
+    where
+        Self: Sized + Clone + 'a,
+        P: Parse<'a, Input, Output2, Error2> + 'a,
+        Output2: 'a,
+        Error2: Clone,
+    {
+        Pair::new(
+            self.clone(),
+            RepeatedParser::zero_or_more(separator.pair(self))
+        )
+    }
+
     fn skip<P, T, E>(self, skip_parser: P) -> Parser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
@@ -191,5 +204,50 @@ where
 {
     fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
         self(input)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::match_character;
+    use crate::Parse;
+    use crate::either::Either;
+
+    #[test]
+    fn separated_by() {
+        let under_test = match_character('1').separated_by(match_character('-'));
+
+        let result = under_test.parse("1".chars());
+
+        match result {
+            Ok((('1', separated), rest)) => {
+                assert!(separated.is_empty());
+                assert_eq!("", rest.as_str())
+            }
+            _ => panic!("failed with {:?}", result)
+        }
+
+        let result = under_test.parse("1-1-1-2-3".chars());
+
+        match result {
+            Ok((('1', separated), rest)) => {
+                let expected = vec![
+                    ('-', '1'),
+                    ('-', '1')
+                ];
+                assert_eq!(expected, separated);
+                assert_eq!("-2-3", rest.as_str())
+            }
+            _ => panic!("failed with {:?}", result)
+        }
+
+        let result = under_test.parse("abc".chars());
+
+        match result {
+            Err(Either::Left(message)) => {
+                assert_eq!("expected '1', got 'a'", message)
+            }
+            _ => panic!("failed with {:?}", result)
+        }
     }
 }
