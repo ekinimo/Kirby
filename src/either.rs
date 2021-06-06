@@ -128,6 +128,15 @@ impl<T1, T2> Either<T1, T2> {
     }
 }
 
+impl<T> Either<T, T> {
+    pub fn reduce(self) -> T {
+        match self {
+            Either::Left(left) => left,
+            Either::Right(right) => right,
+        }
+    }
+}
+
 impl<'a, Input, T1, T2, Error1, Error2> Debug for EitherParser<'a, Input, T1, T2, Error1, Error2>
 where
     Input: Clone + 'a + Iterator,
@@ -162,9 +171,19 @@ impl<T1, T2, T3> Either3<T1, T2, T3> {
     }
 }
 
+impl<T> Either3<T, T, T> {
+    pub fn reduce(self) -> T {
+        match self {
+            Either3::Left(left) => left,
+            Either3::Middle(middle) => middle,
+            Either3::Right(right) => right,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::either::{Either, EitherParser};
+    use crate::either::{Either, EitherParser, Either3};
     use crate::parser::match_character;
     use crate::Parse;
 
@@ -218,5 +237,19 @@ mod tests {
             }
             _ => panic!("failed: {:?}", result),
         }
+    }
+
+    #[test]
+    fn reduce_either() {
+        let under_test: Either<u8, u8> = Either::Left(1);
+
+        assert_eq!(1, under_test.reduce())
+    }
+
+    #[test]
+    fn reduce_either3() {
+        let under_test: Either3<u8, u8, u8> = Either3::Right(1);
+
+        assert_eq!(1, under_test.reduce())
     }
 }
