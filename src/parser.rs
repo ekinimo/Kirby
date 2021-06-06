@@ -90,14 +90,12 @@ pub fn match_character<'a, Input>(
 ) -> Parser<'a, Input, <Input as Iterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    <Input as Iterator>::Item: Debug + Eq,
 {
     Parser::new(move |mut input: Input| match input.next() {
         Some(x) if x == character => Ok((x, input)),
-        _ => Err(format!(
-            "Parser Combinator : match_character failed. expected input got {:?}",
-            input
-        )),
+        Some(x) => Err(format!("expected {:?}, got {:?}", character, x)),
+        None => Err(format!("expected {:?}, got nothing", character)),
     })
 }
 
@@ -124,13 +122,31 @@ pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Cha
 }
 
 #[test]
-fn match_literal_test_1() {
-    let parser = match_literal_str("1");
-    let input = "1".chars();
-    let result = parser.parse(input);
-    println!("{:?}", result);
-    assert_eq!(1, 0)
-    //assert_eq!(result, Ok(("1".chars(), "".chars())))
+fn match_character_succeeds() {
+    let parser = match_character('1');
+
+    let result = parser.parse("1".chars());
+
+    match result {
+        Ok(('1', input)) => {
+            assert_eq!(input.as_str(), "")
+        }
+        _ => panic!("failed: {:?}", result),
+    }
+}
+
+#[test]
+fn match_character_fails() {
+    let parser = match_character('1');
+
+    let result = parser.parse("a".chars());
+
+    match result {
+        Err(message) => {
+            assert_eq!(message, "expected '1', got 'a'".to_string())
+        }
+        _ => panic!("failed: {:?}", result),
+    }
 }
 
 // #[test]
@@ -314,29 +330,55 @@ fn match_literal_test_1() {
 //     assert_eq!(expected, result)
 // }
 
-// #[test]
-// fn or_else_0() {
-//     let input = "2123";
-//     let init1 = match_literal("1");
-//     let init2 = match_literal("2");
+#[test]
+fn or_else() {
+    let input = "2123";
 
-//     let parser2 = Parser::new(init2);
-//     let parser1 = Parser::new(init1).or_else::<Parser<'_, &str, &str>>(parser2);
+    let left = match_character('1');
+    let right = match_character('2');
 
-//     let result = parser1.parse(input);
-//     let expected = Ok(("2", "123"));
-//     assert_eq!(expected, result);
+    let under_test = left.or_else(right);
 
-//     let input2 = "21";
-//     let result = parser1.parse(input2);
-//     let expected = Ok(("2", "1"));
-//     assert_eq!(expected, result);
+    let result = under_test.parse(input.chars());
 
-//     let input3 = "12";
-//     let result = parser1.parse(input3);
-//     let expected = Ok(("1", "2"));
-//     assert_eq!(expected, result)
-// }
+    match result {
+        Ok(('2', input)) => {
+            assert_eq!(input.as_str(), "123")
+        }
+        _ => panic!("failed: {:?}", result),
+    }
+
+    let input2 = "21";
+    let result = under_test.parse(input2.chars());
+
+    match result {
+        Ok(('2', input)) => {
+            assert_eq!(input.as_str(), "1")
+        }
+        _ => panic!("failed: {:?}", result),
+    }
+
+    let input3 = "12";
+    let result = under_test.parse(input3.chars());
+
+    match result {
+        Ok(('1', input)) => {
+            assert_eq!(input.as_str(), "2")
+        }
+        _ => panic!("failed: {:?}", result),
+    }
+
+    let input4 = "abc";
+    let result = under_test.parse(input4.chars());
+
+    match result {
+        Err((left, right)) => {
+            assert_eq!(left, "expected '1', got 'a'".to_string());
+            assert_eq!(right, "expected '2', got 'a'".to_string());
+        }
+        _ => panic!("failed: {:?}", result),
+    }
+}
 
 // fn any(input: &str) -> ParseResult<&str, char> {
 //     match input.chars().next() {

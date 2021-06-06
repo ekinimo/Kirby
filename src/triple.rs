@@ -60,3 +60,103 @@ where
         self.parser.parse(input)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::match_character;
+    use crate::triple::Triple;
+    use crate::Parse;
+
+    #[test]
+    fn all_parsers_succeed() {
+        let under_test = Triple::new(
+            match_character('a'),
+            match_character('b'),
+            match_character('c'),
+        );
+
+        let result = under_test.parse("abcdef".chars());
+
+        match result {
+            Ok((('a', 'b', 'c'), input)) => {
+                assert_eq!(input.as_str(), "def")
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn first_fails() {
+        let under_test = Triple::new(
+            match_character('a'),
+            match_character('b'),
+            match_character('c'),
+        );
+
+        let result = under_test.parse("xbcdef".chars());
+
+        match result {
+            Err(message) => {
+                assert_eq!(message, "expected 'a', got 'x'".to_string())
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn second_fails() {
+        let under_test = Triple::new(
+            match_character('a'),
+            match_character('b'),
+            match_character('c'),
+        );
+
+        let result = under_test.parse("axcdef".chars());
+
+        match result {
+            Err(message) => {
+                assert_eq!(message, "expected 'b', got 'x'".to_string())
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn third_fails() {
+        let under_test = Triple::new(
+            match_character('a'),
+            match_character('b'),
+            match_character('c'),
+        );
+
+        let result = under_test.parse("abxdef".chars());
+
+        match result {
+            Err(message) => {
+                assert_eq!(message, "expected 'c', got 'x'".to_string())
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn triple_or_else_other_both_fail() {
+        let under_test = Triple::new(
+            match_character('a'),
+            match_character('b'),
+            match_character('c'),
+        )
+        .second()
+        .or_else(match_character('z'));
+
+        let result = under_test.parse("b".chars());
+
+        match result {
+            Err((left, right)) => {
+                assert_eq!(left, "expected 'a', got 'b'".to_string());
+                assert_eq!(right, "expected 'z', got 'b'".to_string());
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+}

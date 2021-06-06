@@ -137,3 +137,63 @@ where
         todo!()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::either::{Either, EitherParser};
+    use crate::parser::match_character;
+    use crate::Parse;
+    use std::str::Chars;
+
+    #[test]
+    fn either_with_failing_left_parser() {
+        let left = match_character('a');
+        let right = match_character('b');
+
+        let under_test = EitherParser::new(left, right);
+
+        let result = under_test.parse("b".chars());
+
+        match result {
+            Ok((Either::Right('b'), input)) => {
+                assert_eq!(input.as_str(), "")
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn either_with_failing_right_parser() {
+        let left = match_character('a');
+        let right = match_character('b');
+
+        let under_test = EitherParser::new(left, right);
+
+        let result = under_test.parse("a".chars());
+
+        match result {
+            Ok((Either::Left('a'), input)) => {
+                assert_eq!(input.as_str(), "")
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn either_with_both_failing_parsers() {
+        let left = match_character('a');
+        let right = match_character('b');
+
+        let under_test = EitherParser::new(left, right);
+
+        let result = under_test.parse("1".chars());
+
+        match result {
+            Err((left, right)) => {
+                assert_eq!(left, "expected 'a', got '1'".to_string());
+                assert_eq!(right, "expected 'b', got '1'".to_string());
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+}
