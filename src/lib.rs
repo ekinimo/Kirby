@@ -84,36 +84,45 @@ where
         })
     }
 
-    fn or_else<Parser2, Error2>(self, parser2: Parser2) -> Parser<'a, Input, Output, (Error, Error2)>
+    fn or_else<Parser2, Error2>(
+        self,
+        parser2: Parser2,
+    ) -> Parser<'a, Input, Output, (Error, Error2)>
     where
         Self: Sized + 'a,
         Output: 'a,
         Parser2: Parse<'a, Input, Output, Error2> + 'a,
-        Error2: Clone
+        Error2: Clone,
     {
         self.either(parser2).fold(|left| left, |right| right)
     }
 
-    fn pair<Parser1, Output2>(self, parser2: Parser1) -> Pair<'a, Input, Output, Output2, Error>
+    fn pair<Parser2, Output2, Error2>(
+        self,
+        parser2: Parser2,
+    ) -> Pair<'a, Input, Output, Output2, Error, Error2>
     where
         Self: Sized + 'a,
         Output2: 'a,
-        Parser1: Parse<'a, Input, Output2, Error> + 'a,
+        Parser2: Parse<'a, Input, Output2, Error2> + 'a,
+        Error2: Clone + 'a,
     {
         Pair::new(self, parser2)
     }
 
-    fn triple<Parser1, Parser2, Output2, Output3>(
+    fn triple<Parser2, Parser3, Output2, Output3, Error2, Error3>(
         self,
-        parser2: Parser1,
-        parser3: Parser2,
-    ) -> Triple<'a, Input, Output, Output2, Output3, Error>
+        parser2: Parser2,
+        parser3: Parser3,
+    ) -> Triple<'a, Input, Output, Output2, Output3, Error, Error2, Error3>
     where
         Self: Sized + 'a,
         Output2: 'a,
-        Parser1: Parse<'a, Input, Output2, Error> + 'a,
+        Parser2: Parse<'a, Input, Output2, Error2> + 'a,
         Output3: 'a,
-        Parser2: Parse<'a, Input, Output3, Error> + 'a,
+        Parser3: Parse<'a, Input, Output3, Error3> + 'a,
+        Error2: Clone + 'a,
+        Error3: Clone + 'a,
     {
         Triple::new(self, parser2, parser3)
     }
@@ -126,7 +135,7 @@ where
         Self: Sized + 'a,
         Output2: 'a,
         Parser2: Parse<'a, Input, Output2, Error2> + 'a,
-        Error2: Clone
+        Error2: Clone,
     {
         EitherParser::new(self, parser2)
     }

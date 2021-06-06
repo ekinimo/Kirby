@@ -1,68 +1,88 @@
 use std::rc::Rc;
 
+use crate::either::Either3;
 use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct Triple<'a, Input, T1, T2, T3, Error>
+pub struct Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, (T1, T2, T3), Error> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
 }
 
-impl<'a, Input, T1, T2, T3, Error> Triple<'a, Input, T1, T2, T3, Error>
+impl<'a, Input, T1, T2, T3, Error1, Error2, Error3>
+    Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
     T3: 'a,
-    Error: Clone + 'a,
+    Error1: Clone + 'a,
+    Error2: Clone + 'a,
+    Error3: Clone + 'a,
 {
     pub fn new<P1, P2, P3>(parser1: P1, parser2: P2, parser3: P3) -> Self
     where
-        P1: Parse<'a, Input, T1, Error> + 'a,
-        P2: Parse<'a, Input, T2, Error> + 'a,
-        P3: Parse<'a, Input, T3, Error> + 'a,
+        P1: Parse<'a, Input, T1, Error1> + 'a,
+        P2: Parse<'a, Input, T2, Error2> + 'a,
+        P3: Parse<'a, Input, T3, Error3> + 'a,
     {
         Self {
             parser: Rc::new(move |input| {
-                let (result1, input2) = parser1.parse(input)?;
-                let (result2, input3) = parser2.parse(input2)?;
-                let (result3, rest) = parser3.parse(input3)?;
+                let (result1, input2) = match parser1.parse(input) {
+                    Ok((result1, input2)) => (result1, input2),
+                    Err(error) => return Err(Either3::Left(error)),
+                };
+                let (result2, input3) = match parser2.parse(input2) {
+                    Ok((result2, input3)) => (result2, input3),
+                    Err(error) => return Err(Either3::Middle(error)),
+                };
+                let (result3, rest) = match parser3.parse(input3) {
+                    Ok((result3, rest)) => (result3, rest),
+                    Err(error) => return Err(Either3::Right(error)),
+                };
                 Ok(((result1, result2, result3), rest))
             }),
         }
     }
 
-    pub fn first(self) -> Parser<'a, Input, T1, Error> {
+    pub fn first(self) -> Parser<'a, Input, T1, Either3<Error1, Error2, Error3>> {
         self.transform(move |(first, _, _)| first)
     }
 
-    pub fn second(self) -> Parser<'a, Input, T2, Error> {
+    pub fn second(self) -> Parser<'a, Input, T2, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, second, _)| second)
     }
-    pub fn third(self) -> Parser<'a, Input, T3, Error> {
+    pub fn third(self) -> Parser<'a, Input, T3, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, _, third)| third)
     }
 }
 
-impl<'a, Input, T1, T2, T3, Error> Parse<'a, Input, (T1, T2, T3), Error>
-    for Triple<'a, Input, T1, T2, T3, Error>
+impl<'a, Input, T1, T2, T3, Error1, Error2, Error3>
+    Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>>
+    for Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error: Clone + 'a,
+    Error1: Clone + 'a,
+    Error2: Clone + 'a,
+    Error3: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, (T1, T2, T3), Error> {
+    fn parse(
+        &self,
+        input: Input,
+    ) -> ParseResult<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
         self.parser.parse(input)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::either::Either3;
     use crate::parser::{match_character, match_literal};
     use crate::triple::Triple;
     use crate::Parse;
@@ -96,7 +116,7 @@ mod tests {
         let result = under_test.parse("xbcdef".chars());
 
         match result {
-            Err(message) => {
+            Err(Either3::Left(message)) => {
                 assert_eq!(message, "expected 'a', got 'x'".to_string())
             }
             _ => panic!("failed: {:?}", result),
@@ -114,7 +134,7 @@ mod tests {
         let result = under_test.parse("axcdef".chars());
 
         match result {
-            Err(message) => {
+            Err(Either3::Middle(message)) => {
                 assert_eq!(message, "expected 'b', got 'x'".to_string())
             }
             _ => panic!("failed: {:?}", result),
@@ -132,7 +152,7 @@ mod tests {
         let result = under_test.parse("abxdef".chars());
 
         match result {
-            Err(message) => {
+            Err(Either3::Right(message)) => {
                 assert_eq!(message, "expected 'c', got 'x'".to_string())
             }
             _ => panic!("failed: {:?}", result),
@@ -152,7 +172,7 @@ mod tests {
         let result = under_test.parse("b".chars());
 
         match result {
-            Err((left, right)) => {
+            Err((Either3::Left(left), right)) => {
                 assert_eq!(left, "expected 'a', got 'b'".to_string());
                 assert_eq!(right, "expected 'z', got 'b'".to_string());
             }
@@ -171,7 +191,7 @@ mod tests {
         let result = under_test.parse("ab".chars());
 
         match result {
-            Err(message) => {
+            Err(Either3::Right(message)) => {
                 assert_eq!(
                     message,
                     "match_literal failed: expected Chars(['c']), got Chars([])".to_string()

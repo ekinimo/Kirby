@@ -23,6 +23,7 @@ pub fn top_level(input: Chars) -> ParseResult<Chars, i32, String> {
     expression
         .pair(match_literal(";".chars()))
         .first()
+        .with_error(|_, _| "error".to_string())
         .parse(input)
 }
 
@@ -32,17 +33,18 @@ pub fn expression(input: Chars) -> ParseResult<Chars, i32, String> {
         RepeatedParser::zero_or_more(match_literal("+".chars()).pair(term).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
+    .with_error(|_, _| "error".to_string())
     .parse(input.clone())
 }
 
 pub fn term(input: Chars) -> ParseResult<Chars, i32, String> {
-    let res = Pair::new(
+    Pair::new(
         factor,
         RepeatedParser::zero_or_more(match_literal("*".chars()).pair(factor).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
-    .parse(input.clone());
-    res
+    .with_error(|_, _| "error".to_string())
+    .parse(input.clone())
 }
 
 pub fn factor(input: Chars) -> ParseResult<Chars, i32, String> {
@@ -85,7 +87,7 @@ pub fn factor(input: Chars) -> ParseResult<Chars, i32, String> {
     )
     .second()
     .or_else(parse_natural_numbers.clone())
-    .with_error(|(error1, _), _| error1)
+    .with_error(|(_, _), _| "error".to_string())
     .parse(input.clone())
 }
 

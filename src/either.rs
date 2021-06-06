@@ -140,6 +140,28 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Either3<T1, T2, T3> {
+    Left(T1),
+    Middle(T2),
+    Right(T3),
+}
+
+impl<T1, T2, T3> Either3<T1, T2, T3> {
+    pub fn fold<T>(
+        self,
+        left_transformer: fn(T1) -> T,
+        middle_transformer: fn(T2) -> T,
+        right_transformer: fn(T3) -> T,
+    ) -> T {
+        match self {
+            Either3::Left(left) => left_transformer(left),
+            Either3::Middle(middle) => middle_transformer(middle),
+            Either3::Right(right) => right_transformer(right),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::either::{Either, EitherParser};
