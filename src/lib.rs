@@ -55,11 +55,11 @@ where
     where
         Self: Sized + 'a,
         Output2: 'a,
-        TransformFunction: Fn(Output,&Input) -> Output2 + 'a,
+        TransformFunction: Fn(Output, Input) -> Output2 + 'a,
     {
         Parser::new(move |input| {
             self.parse(input)
-                .map(|(result, rest)| (transform_function(result,&rest), rest))
+                .map(|(result, rest)| (transform_function(result,rest.clone()), rest))
         })
     }
 

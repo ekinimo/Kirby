@@ -33,7 +33,8 @@ where
     }
 }
 
-impl<'a, Input, Output, Error> Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
+impl<'a, Input, Output, Error>
+    Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
