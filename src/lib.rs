@@ -55,7 +55,7 @@ where
     where
         Self: Sized + 'a ,
         Output2: 'a,
-        TransformFunction: Fn(Output, &Input) -> Output2 + 'a ,
+        TransformFunction: for<'c> Fn(Output, &'c Input) -> Output2 + 'a ,
     {
         Parser::new(move |input| {
             self.parse(input)
