@@ -48,18 +48,18 @@ where
         })
     }
 
-    fn peek_and_transform<TransformFunction, Output2>(
+    fn peek_and_transform<TransformFunction,  Output2>(
         self,
         transform_function: TransformFunction,
     ) -> Parser<'a, Input, Output2, Error>
     where
-        Self: Sized + 'a,
+        Self: Sized + 'a ,
         Output2: 'a,
-        TransformFunction: Fn(Output, Input) -> Output2 + 'a,
+        TransformFunction: Fn(Output, &Input) -> Output2 + 'a ,
     {
         Parser::new(move |input| {
             self.parse(input)
-                .map(|(result, rest)| (transform_function(result,rest.clone()), rest))
+                .map(|(result, rest)| (transform_function(result,&rest), rest))
         })
     }
 
