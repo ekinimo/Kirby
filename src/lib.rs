@@ -55,11 +55,11 @@ where
     where
         Self: Sized + 'a ,
         Output2: 'a,
-        TransformFunction: for<'b,'c> Fn(Output, &'c Input) -> Output2 + 'a ,
+        TransformFunction:  Fn(Output,  Input) -> Output2 + 'a ,
     {
         Parser::new(move |input| {
             self.parse(input)
-                .map(|(result, rest)| (transform_function(result,&rest), rest))
+                .map(|(result, rest)| (transform_function(result,rest.clone()), rest))
         })
     }
 
@@ -76,7 +76,7 @@ where
         PredicateFunction: Fn(&Output) -> bool + 'a,
     {
         Parser::new(move |input: Input| {
-            let (value, next_input) = self.parse(input.clone())?;
+            let (value, next_input) = self.parse(input)?;
             if predicate(&value) {
                 Ok((value, next_input))
             } else {

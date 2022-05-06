@@ -124,7 +124,7 @@ pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Cha
                 "Parser Combinator : match_literal_str failed. expected {:?} got {:?}",
                 expected, input
             )
-            .to_string()),
+            ),
         }
     }
 }

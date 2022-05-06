@@ -42,7 +42,7 @@ where
     {
         Self {
             parser: Rc::new(move |input: Input| {
-                let (first_item, mut input) = parser.parse(input.clone())?;
+                let (first_item, mut input) = parser.parse(input)?;
                 let mut result = vec![first_item];
 
                 while let Ok((next_item, next_input)) = parser.parse(input.clone()) {
