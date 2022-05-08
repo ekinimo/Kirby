@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::{Parse, ParseResult};
 
@@ -8,7 +9,7 @@ where
     Input: Iterator + 'a,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, Vec<T1>, Error> + 'a>,
+    parser: Rc<RefCell<dyn Parse<'a, Input, Vec<T1>, Error> + 'a>>,
 }
 
 impl<'a, Input, T1, Error> RepeatedParser<'a, Input, T1, Error>
@@ -18,12 +19,14 @@ where
     T1: 'a,
     Error: Clone + 'a,
 {
-    pub fn zero_or_more<Parser>(parser: Parser) -> Self
+    pub fn zero_or_more<Parser>(mut parser: Parser) -> Self
     where
         Parser: Parse<'a, Input, T1, Error> + 'a,
     {
         Self {
-            parser: Rc::new(move |mut input: Input| {
+            parser: Rc::new(
+                RefCell::new(
+                move |mut input: Input| {
                 let mut result = Vec::new();
 
                 while let Ok((next_item, next_input)) = parser.parse(input.clone()) {
@@ -32,16 +35,16 @@ where
                 }
 
                 Ok((result, input))
-            }),
+            }))
         }
     }
 
-    pub fn one_or_more<Parser>(parser: Parser) -> Self
+    pub fn one_or_more<Parser>(mut parser: Parser) -> Self
     where
         Parser: Parse<'a, Input, T1, Error> + 'a,
     {
         Self {
-            parser: Rc::new(move |input: Input| {
+            parser: Rc::new(RefCell::new (move |input: Input| {
                 let (first_item, mut input) = parser.parse(input)?;
                 let mut result = vec![first_item];
 
@@ -51,7 +54,7 @@ where
                 }
 
                 Ok((result, input))
-            }),
+            })),
         }
     }
 
@@ -69,7 +72,7 @@ where
     <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Vec<T1>, Error> {
-        self.parser.parse(input)
+    fn parse(&mut self, input: Input) -> ParseResult<'a, Input, Vec<T1>, Error> {
+        (*self.parser.borrow_mut()).parse(input)
     }
 }
