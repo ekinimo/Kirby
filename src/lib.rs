@@ -1,15 +1,22 @@
 #![recursion_limit = "256"]
+
+#[macro_use]
+extern crate frunk;
+
+
 use crate::either::{EitherParser, Either};
 use crate::pair::Pair;
 use crate::parser::Parser;
 use crate::repeated::RepeatedParser;
 use crate::triple::Triple;
+use crate::tuple::Tuple;
 
 pub mod either;
 pub mod pair;
 pub mod parser;
 pub mod repeated;
 pub mod triple;
+pub mod tuple;
 
 pub type ParseResult<'a, Input, Output, Error> = Result<(Output, Input), Error>;
 
@@ -128,6 +135,20 @@ where
     {
         Pair::new(self, parser2)
     }
+
+    fn and_then<Parser2, Output2, Error2>(
+        self,
+        parser2: Parser2,
+    ) -> Tuple<'a, Input, Output, Output2, Error, Error2>
+    where
+        Self: Sized + 'a,
+        Output2: 'a,
+        Parser2: Parse<'a, Input, Output2, Error2> + 'a,
+        Error2: Clone + 'a,
+    {
+        Tuple::new(self, parser2)
+    }
+
 
     fn triple<Parser2, Parser3, Output2, Output3, Error2, Error3>(
         self,
