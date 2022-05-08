@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use crate::either::Either3;
 use crate::parser::Parser;
@@ -10,7 +11,7 @@ where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
+    parser: Rc<RefCell<dyn Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>>,
 }
 
 impl<'a, Input, T1, T2, T3, Error1, Error2, Error3>
@@ -25,28 +26,30 @@ where
     Error2: Clone + 'a,
     Error3: Clone + 'a,
 {
-    pub fn new<P1, P2, P3>(parser1: P1, parser2: P2, parser3: P3) -> Self
+    pub fn new<P1, P2, P3>(mut parser1: P1, mut parser2: P2, mut parser3: P3) -> Self
     where
         P1: Parse<'a, Input, T1, Error1> + 'a,
         P2: Parse<'a, Input, T2, Error2> + 'a,
         P3: Parse<'a, Input, T3, Error3> + 'a,
     {
+        let temp = RefCell::new(move |input| {
+            let (result1, input2) = match parser1.parse(input) {
+                Ok((result1, input2)) => (result1, input2),
+                Err(error) => return Err(Either3::Left(error)),
+            };
+            let (result2, input3) = match parser2.parse(input2) {
+                Ok((result2, input3)) => (result2, input3),
+                Err(error) => return Err(Either3::Middle(error)),
+            };
+            let (result3, rest) = match parser3.parse(input3) {
+                Ok((result3, rest)) => (result3, rest),
+                Err(error) => return Err(Either3::Right(error)),
+            };
+            Ok(((result1, result2, result3), rest))
+        });
+
         Self {
-            parser: Rc::new(move |input| {
-                let (result1, input2) = match parser1.parse(input) {
-                    Ok((result1, input2)) => (result1, input2),
-                    Err(error) => return Err(Either3::Left(error)),
-                };
-                let (result2, input3) = match parser2.parse(input2) {
-                    Ok((result2, input3)) => (result2, input3),
-                    Err(error) => return Err(Either3::Middle(error)),
-                };
-                let (result3, rest) = match parser3.parse(input3) {
-                    Ok((result3, rest)) => (result3, rest),
-                    Err(error) => return Err(Either3::Right(error)),
-                };
-                Ok(((result1, result2, result3), rest))
-            }),
+            parser: Rc::new(temp) ,
         }
     }
 
@@ -73,10 +76,10 @@ where
     Error3: Clone + 'a,
 {
     fn parse(
-        &self,
+        &mut self,
         input: Input,
     ) -> ParseResult<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
-        self.parser.parse(input)
+        (*self.parser.borrow_mut()).parse(input)
     }
 }
 
@@ -89,7 +92,7 @@ mod tests {
 
     #[test]
     fn all_parsers_succeed() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_character('a'),
             match_character('b'),
             match_character('c'),
@@ -107,7 +110,7 @@ mod tests {
 
     #[test]
     fn first_fails() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_character('a'),
             match_character('b'),
             match_character('c'),
@@ -125,7 +128,7 @@ mod tests {
 
     #[test]
     fn second_fails() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_character('a'),
             match_character('b'),
             match_character('c'),
@@ -143,7 +146,7 @@ mod tests {
 
     #[test]
     fn third_fails() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_character('a'),
             match_character('b'),
             match_character('c'),
@@ -161,7 +164,7 @@ mod tests {
 
     #[test]
     fn triple_or_else_other_both_fail() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_character('a'),
             match_character('b'),
             match_character('c'),
@@ -182,7 +185,7 @@ mod tests {
 
     #[test]
     fn failing_triple_match_literal() {
-        let under_test = Triple::new(
+        let mut under_test = Triple::new(
             match_literal("a".chars()),
             match_literal("b".chars()),
             match_literal("c".chars()),

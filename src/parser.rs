@@ -1,4 +1,6 @@
 use std::{fmt::Debug, rc::Rc, str::Chars};
+use std::ops::{Deref, DerefMut};
+use std::cell::RefCell;
 
 use crate::{Parse, ParseResult};
 
@@ -14,7 +16,7 @@ where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + 'a,
 {
-    parser: Rc<dyn Parse<'a, Input, Output, Error> + 'a>,
+    parser: Rc<RefCell<dyn Parse<'a, Input, Output, Error>+'a>>,
 }
 
 impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
@@ -28,10 +30,13 @@ where
         P: Parse<'a, Input, Output, Error> + 'a,
     {
         Self {
-            parser: Rc::from(parser),
+            parser: Rc::from(RefCell::new(parser)),
         }
     }
 }
+
+
+
 
 impl<'a, Input, Output, Error>
     Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
@@ -40,8 +45,8 @@ where
     <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
-        self.parser.parse(input)
+    fn parse(&mut self, input: Input) -> ParseResult<'a, Input, Output, Error> {
+        (*self.parser.borrow_mut()).parse(input)
     }
 }
 
@@ -136,7 +141,7 @@ mod tests {
 
     #[test]
     fn match_character_succeeds() {
-        let parser = match_character('1');
+        let mut parser = match_character('1');
 
         let result = parser.parse("1".chars());
 
@@ -150,7 +155,7 @@ mod tests {
 
     #[test]
     fn match_character_fails() {
-        let parser = match_character('1');
+        let mut parser = match_character('1');
 
         let result = parser.parse("a".chars());
 
@@ -164,7 +169,7 @@ mod tests {
 
     #[test]
     fn match_literal_of_length_1_succeeds() {
-        let under_test = match_literal("a".chars());
+        let mut under_test = match_literal("a".chars());
 
         let result = under_test.parse("abc".chars());
 
@@ -179,7 +184,7 @@ mod tests {
 
     #[test]
     fn match_literal_of_length_1_fails() {
-        let under_test = match_literal("a".chars());
+        let mut under_test = match_literal("a".chars());
 
         let result = under_test.parse("def".chars());
 
@@ -197,7 +202,7 @@ mod tests {
 
     #[test]
     fn match_literal_with_empty_input_fails() {
-        let under_test = match_literal("a".chars());
+        let mut under_test = match_literal("a".chars());
 
         let result = under_test.parse("".chars());
 
@@ -214,7 +219,7 @@ mod tests {
 
     #[test]
     fn match_literal_of_size_3_with_input_length_less_than_to_match_fails() {
-        let under_test = match_literal("abc".chars());
+        let mut under_test = match_literal("abc".chars());
 
         let result = under_test.parse("a".chars());
 
@@ -234,10 +239,10 @@ mod tests {
     fn or_else() {
         let input = "2123";
 
-        let left = match_character('1');
-        let right = match_character('2');
+        let mut left  = match_character('1');
+        let mut right = match_character('2');
 
-        let under_test = left.or_else(right);
+        let mut under_test = left.or_else(right);
 
         let result = under_test.parse(input.chars());
 

@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 use crate::either::{EitherParser, Either};
 use crate::pair::Pair;
 use crate::parser::Parser;
@@ -19,9 +20,9 @@ where
     Output: 'a,
     Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error>;
+    fn parse(&mut self, input: Input) -> ParseResult<'a, Input, Output, Error>;
 
-    fn with_error<F, Error2>(self, error_mapper: F) -> Parser<'a, Input, Output, Error2>
+    fn with_error<F, Error2>(mut self, error_mapper: F) -> Parser<'a, Input, Output, Error2>
     where
         Self: Sized + 'a,
         F: Fn(Error, Input) -> Error2 + 'a,
@@ -34,7 +35,7 @@ where
     }
 
     fn transform<TransformFunction, Output2>(
-        self,
+        mut self,
         transform_function: TransformFunction,
     ) -> Parser<'a, Input, Output2, Error>
     where
@@ -49,7 +50,7 @@ where
     }
 
     fn peek_and_transform<TransformFunction,  Output2>(
-        self,
+        mut self,
         transform_function: TransformFunction,
     ) -> Parser<'a, Input, Output2, Error>
     where
@@ -66,7 +67,7 @@ where
 
 
     fn validate<PredicateFunction>(
-        self,
+        mut self,
         predicate: PredicateFunction,
         error_message: Error,
     ) -> Parser<'a, Input, Output, Error>
@@ -86,7 +87,7 @@ where
     }
 
     fn new_parser_from_parse_result<F, NextParser, Output2>(
-        self,
+        mut self,
         f: F,
     ) -> Parser<'a, Input, Output2, Error>
     where
@@ -102,7 +103,7 @@ where
     }
 
     fn or_else<Parser2, Error2>(
-        self,
+         self,
         parser2: Parser2,
     ) -> Parser<'a, Input, Output, (Error, Error2)>
     where
@@ -114,8 +115,9 @@ where
         self.either(parser2).fold(|left| left, |right| right)
     }
 
+
     fn pair<Parser2, Output2, Error2>(
-        self,
+         self,
         parser2: Parser2,
     ) -> Pair<'a, Input, Output, Output2, Error, Error2>
     where
@@ -188,7 +190,7 @@ where
         )
     }
 
-    fn skip<P, T, E>(self, skip_parser: P) -> Parser<'a, Input, Output, Error>
+    fn skip<P, T, E>(mut self, mut skip_parser: P) -> Parser<'a, Input, Output, Error>
     where
         Self: Sized + 'a,
         Output: 'a,
@@ -213,13 +215,13 @@ where
 
 impl<'a, Function, Input, Output, Error> Parse<'a, Input, Output, Error> for Function
 where
-    Function: Fn(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
+    Function: FnMut(Input) -> ParseResult<'a, Input, Output, Error> + 'a,
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Output: 'a,
     Error: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
+    fn parse(&mut self, input: Input) -> ParseResult<'a, Input, Output, Error> {
         self(input)
     }
 }
@@ -232,7 +234,7 @@ mod tests {
 
     #[test]
     fn separated_by() {
-        let under_test = match_character('1').separated_by(match_character('-'));
+        let mut under_test = match_character('1').separated_by(match_character('-'));
 
         let result = under_test.parse("1".chars());
 

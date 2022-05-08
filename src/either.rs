@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::rc::Rc;
-
+use std::cell::RefCell;
 use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
@@ -10,8 +10,10 @@ where
     Input: Iterator + 'a,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, Either<T1, T2>, (Error1, Error2)> + 'a>,
+    parser: Rc<   RefCell<dyn Parse<'a, Input, Either<T1, T2>, (Error1, Error2)> + 'a>>,
 }
+
+
 
 impl<'a, Input, T1, T2, Error1, Error2> EitherParser<'a, Input, T1, T2, Error1, Error2>
 where
@@ -22,19 +24,21 @@ where
     Error1: Clone + 'a,
     Error2: Clone + 'a,
 {
-    pub fn new<P1, P2>(left_parser: P1, right_parser: P2) -> Self
+    pub fn new<P1, P2>(mut left_parser: P1,mut  right_parser: P2) -> Self
     where
         P1: Parse<'a, Input, T1, Error1> + 'a,
         P2: Parse<'a, Input, T2, Error2> + 'a,
     {
         Self {
-            parser: Rc::new(move |input: Input| match left_parser.parse(input.clone()) {
+            parser: Rc::new(
+                RefCell::new(
+                move |input: Input| match left_parser.parse(input.clone()) {
                 Err(first_error_message) => match right_parser.parse(input) {
                     Err(second_error_message) => Err((first_error_message, second_error_message)),
                     Ok((output, input)) => Ok((Either::Right(output), input)),
                 },
                 Ok((output, input)) => Ok((Either::Left(output), input)),
-            }),
+            })),
         }
     }
 
@@ -60,8 +64,8 @@ where
     Error1: Clone + 'a,
     Error2: Clone + 'a,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error1, Error2)> {
-        self.parser.parse(input)
+    fn parse(&mut self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error1, Error2)> {
+        (*self.parser.borrow_mut()).parse(input)
     }
 }
 
@@ -192,7 +196,7 @@ mod tests {
         let left = match_character('a');
         let right = match_character('b');
 
-        let under_test = EitherParser::new(left, right);
+        let mut under_test = EitherParser::new(left, right);
 
         let result = under_test.parse("b".chars());
 
@@ -209,7 +213,7 @@ mod tests {
         let left = match_character('a');
         let right = match_character('b');
 
-        let under_test = EitherParser::new(left, right);
+        let mut under_test = EitherParser::new(left, right);
 
         let result = under_test.parse("a".chars());
 
@@ -226,7 +230,7 @@ mod tests {
         let left = match_character('a');
         let right = match_character('b');
 
-        let under_test = EitherParser::new(left, right);
+        let mut under_test = EitherParser::new(left, right);
 
         let result = under_test.parse("1".chars());
 
@@ -241,14 +245,14 @@ mod tests {
 
     #[test]
     fn reduce_either() {
-        let under_test: Either<u8, u8> = Either::Left(1);
+        let mut under_test: Either<u8, u8> = Either::Left(1);
 
         assert_eq!(1, under_test.reduce())
     }
 
     #[test]
     fn reduce_either3() {
-        let under_test: Either3<u8, u8, u8> = Either3::Right(1);
+        let mut under_test: Either3<u8, u8, u8> = Either3::Right(1);
 
         assert_eq!(1, under_test.reduce())
     }
