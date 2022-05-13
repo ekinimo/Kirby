@@ -1,71 +1,76 @@
 use std::str::Chars;
 
 use parser_combinator::pair::Pair;
-use parser_combinator::parser::{match_literal, match_literal_str, Parser};
+use parser_combinator::parser::{match_literal, Parser};
 use parser_combinator::repeated::RepeatedParser;
 use parser_combinator::triple::Triple;
 use parser_combinator::{parser, Parse, ParseResult};
 
 fn main() {
     //Calculator stuff
-    println!("{:?}", top_level("1+2+3*4+6;".chars()));
-    println!("{:?}", top_level("1+2+3+4+5;".chars()));
-    println!("{:?}", top_level("1+(2+3)*4;".chars()));
-    println!("{:?}", top_level("1+2+3*4+1;".chars()));
-    println!("{:?}", top_level("1*2*3*4;".chars()));
-    println!("{:?}", top_level("1*(2+3*4);".chars()));
-    println!("{:?}", top_level("1+2+3*4+5+2+6;".chars()));
+    println!("{:?}", top_level("1+2;".chars(), 0));
+    println!("{:?}", top_level("1+2+3+4+5;".chars(), 0));
+    println!("{:?}", top_level("1+(2+3)*4;".chars(), 0));
+    println!("{:?}", top_level("1+2+3*4+1;".chars(), 0));
+    println!("{:?}", top_level("1*2*3*4;".chars(), 0));
+    println!("{:?}", top_level("1*(2+3*4);".chars(), 0));
+    println!("{:?}", top_level("1+2+3*4+5+2+6;".chars(), 0));
 }
 
 //type ParseResult<'a, Input, Output> = Result<(Output, Input), String>;
 
-pub fn top_level(input: Chars) -> ParseResult<Chars, i32, String> {
+fn increment(x: i32) -> i32 {
+    /*println!("hello {x}");*/
+    x + 1
+}
+
+pub fn top_level(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     expression
-        .pair(match_literal(";".chars()))
+        .pair(match_literal(";".chars(), increment))
         .first()
         .with_error(|_, _| "error".to_string())
-        .parse(input)
+        .parse(input, _state)
 }
 
-pub fn expression(input: Chars) -> ParseResult<Chars, i32, String> {
+pub fn expression(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     Pair::new(
         term,
-        RepeatedParser::zero_or_more(match_literal("+".chars()).pair(term).second()),
+        RepeatedParser::zero_or_more(match_literal("+".chars(), increment).pair(term)),
     )
-    .transform(|(x, y)| y.iter().fold(x, |a, b| a + b))
+    .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
     .with_error(|_, _| "error".to_string())
-    .parse(input.clone())
+    .parse(input.clone(), _state)
 }
 
-pub fn term(input: Chars) -> ParseResult<Chars, i32, String> {
+pub fn term(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     Pair::new(
         factor,
-        RepeatedParser::zero_or_more(match_literal("*".chars()).pair(factor).second()),
+        RepeatedParser::zero_or_more(match_literal("*".chars(), increment).pair(factor).second()),
     )
     .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
     .with_error(|_, _| "error".to_string())
-    .parse(input.clone())
+    .parse(input.clone(), _state)
 }
 
-pub fn factor(input: Chars) -> ParseResult<Chars, i32, String> {
+pub fn factor(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     //println!("factor = {:?}", input);
     let parse_digit = vec![
-        parser::Parser::new(match_literal_str("1")),
-        parser::Parser::new(match_literal_str("2")),
-        parser::Parser::new(match_literal_str("3")),
-        parser::Parser::new(match_literal_str("3")),
-        parser::Parser::new(match_literal_str("4")),
-        parser::Parser::new(match_literal_str("5")),
-        parser::Parser::new(match_literal_str("6")),
-        parser::Parser::new(match_literal_str("7")),
-        parser::Parser::new(match_literal_str("8")),
-        parser::Parser::new(match_literal_str("9")),
-        parser::Parser::new(match_literal_str("0")),
+        parser::Parser::new(match_literal("1".chars(), increment)),
+        parser::Parser::new(match_literal("2".chars(), increment)),
+        parser::Parser::new(match_literal("3".chars(), increment)),
+        parser::Parser::new(match_literal("3".chars(), increment)),
+        parser::Parser::new(match_literal("4".chars(), increment)),
+        parser::Parser::new(match_literal("5".chars(), increment)),
+        parser::Parser::new(match_literal("6".chars(), increment)),
+        parser::Parser::new(match_literal("7".chars(), increment)),
+        parser::Parser::new(match_literal("8".chars(), increment)),
+        parser::Parser::new(match_literal("9".chars(), increment)),
+        parser::Parser::new(match_literal("0".chars(), increment)),
     ]
     .iter()
     .fold(
-        parser::Parser::new(match_literal_str("0")),
-        |x: Parser<Chars, Chars, String>, y| {
+        parser::Parser::new(match_literal("0".chars(), increment)),
+        |x: Parser<Chars, i32, Chars, String>, y: &Parser<Chars, i32, Chars, String>| {
             x.or_else(y.clone()).with_error(|_, _| "error".to_string())
         },
     );
@@ -81,14 +86,14 @@ pub fn factor(input: Chars) -> ParseResult<Chars, i32, String> {
     });
 
     Triple::new(
-        match_literal("(".chars()),
+        match_literal("(".chars(), increment),
         expression,
-        match_literal(")".chars()),
+        match_literal(")".chars(), increment),
     )
     .second()
     .or_else(parse_natural_numbers.clone())
     .with_error(|(_, _), _| "error".to_string())
-    .parse(input.clone())
+    .parse(input.clone(), _state)
 }
 
 // println!("Hello, world!");

@@ -5,15 +5,16 @@ use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct EitherParser<'a, Input, T1, T2, Error1, Error2>
+pub struct EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
     Input: Iterator + 'a,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, Either<T1, T2>, (Error1, Error2)> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, State, Either<T1, T2>, (Error1, Error2)> + 'a>,
 }
 
-impl<'a, Input, T1, T2, Error1, Error2> EitherParser<'a, Input, T1, T2, Error1, Error2>
+impl<'a, Input, State, T1, T2, Error1, Error2>
+    EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
@@ -21,19 +22,24 @@ where
     T2: 'a,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
+    State: Clone,
 {
     pub fn new<P1, P2>(left_parser: P1, right_parser: P2) -> Self
     where
-        P1: Parse<'a, Input, T1, Error1> + 'a,
-        P2: Parse<'a, Input, T2, Error2> + 'a,
+        P1: Parse<'a, Input, State, T1, Error1> + 'a,
+        P2: Parse<'a, Input, State, T2, Error2> + 'a,
     {
         Self {
-            parser: Rc::new(move |input: Input| match left_parser.parse(input.clone()) {
-                Err(first_error_message) => match right_parser.parse(input) {
-                    Err(second_error_message) => Err((first_error_message, second_error_message)),
-                    Ok((output, input)) => Ok((Either::Right(output), input)),
-                },
-                Ok((output, input)) => Ok((Either::Left(output), input)),
+            parser: Rc::new(move |input: Input, state: State| {
+                match left_parser.parse(input.clone(), state.clone()) {
+                    Err(first_error_message) => match right_parser.parse(input, state) {
+                        Err(second_error_message) => {
+                            Err((first_error_message, second_error_message))
+                        }
+                        Ok((output, state, input)) => Ok((Either::Right(output), state, input)),
+                    },
+                    Ok((output, state, input)) => Ok((Either::Left(output), state, input)),
+                }
             }),
         }
     }
@@ -42,26 +48,33 @@ where
         self,
         left_transformation: fn(T1) -> Output,
         right_transformation: fn(T2) -> Output,
-    ) -> Parser<'a, Input, Output, (Error1, Error2)>
+    ) -> Parser<'a, Input, State, Output, (Error1, Error2)>
     where
         <Input as Iterator>::Item: Eq,
         Input: 'a + Clone + Iterator,
         Output: 'a,
+        State: 'a,
     {
         self.transform(move |either| either.fold(left_transformation, right_transformation))
     }
 }
 
-impl<'a, Input, T1, T2, Error1, Error2> Parse<'a, Input, Either<T1, T2>, (Error1, Error2)>
-    for EitherParser<'a, Input, T1, T2, Error1, Error2>
+impl<'a, Input, State, T1, T2, Error1, Error2>
+    Parse<'a, Input, State, Either<T1, T2>, (Error1, Error2)>
+    for EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
+    State: Clone,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Either<T1, T2>, (Error1, Error2)> {
-        self.parser.parse(input)
+    fn parse(
+        &self,
+        input: Input,
+        state: State,
+    ) -> ParseResult<'a, Input, State, Either<T1, T2>, (Error1, Error2)> {
+        self.parser.parse(input, state)
     }
 }
 
@@ -137,7 +150,8 @@ impl<T> Either<T, T> {
     }
 }
 
-impl<'a, Input, T1, T2, Error1, Error2> Debug for EitherParser<'a, Input, T1, T2, Error1, Error2>
+impl<'a, Input, State, T1, T2, Error1, Error2> Debug
+    for EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
@@ -183,7 +197,7 @@ impl<T> Either3<T, T, T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::either::{Either, EitherParser, Either3};
+    use crate::either::{Either, Either3, EitherParser};
     use crate::parser::match_character;
     use crate::Parse;
 
@@ -194,10 +208,10 @@ mod tests {
 
         let under_test = EitherParser::new(left, right);
 
-        let result = under_test.parse("b".chars());
+        let result = under_test.parse("b".chars(), ());
 
         match result {
-            Ok((Either::Right('b'), input)) => {
+            Ok((Either::Right('b'), _, input)) => {
                 assert_eq!(input.as_str(), "")
             }
             _ => panic!("failed: {:?}", result),
@@ -211,10 +225,10 @@ mod tests {
 
         let under_test = EitherParser::new(left, right);
 
-        let result = under_test.parse("a".chars());
+        let result = under_test.parse("a".chars(), ());
 
         match result {
-            Ok((Either::Left('a'), input)) => {
+            Ok((Either::Left('a'), _, input)) => {
                 assert_eq!(input.as_str(), "")
             }
             _ => panic!("failed: {:?}", result),
@@ -228,7 +242,7 @@ mod tests {
 
         let under_test = EitherParser::new(left, right);
 
-        let result = under_test.parse("1".chars());
+        let result = under_test.parse("1".chars(), ());
 
         match result {
             Err((left, right)) => {

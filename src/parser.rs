@@ -9,23 +9,24 @@ use crate::{Parse, ParseResult};
 // }
 
 #[derive(Clone)]
-pub struct Parser<'a, Input, Output, Error>
+pub struct Parser<'a, Input, State, Output, Error>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq + 'a,
 {
-    parser: Rc<dyn Parse<'a, Input, Output, Error> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, State, Output, Error> + 'a>,
 }
 
-impl<'a, Input, Output, Error> Parser<'a, Input, Output, Error>
+impl<'a, Input, State, Output, Error> Parser<'a, Input, State, Output, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
+    State: Clone,
 {
     pub fn new<P>(parser: P) -> Self
     where
-        P: Parse<'a, Input, Output, Error> + 'a,
+        P: Parse<'a, Input, State, Output, Error> + 'a,
     {
         Self {
             parser: Rc::from(parser),
@@ -33,24 +34,30 @@ where
     }
 }
 
-impl<'a, Input, Output, Error>
-    Parse<'a, Input, Output, Error> for Parser<'a, Input, Output, Error>
+impl<'a, Input, State, Output, Error> Parse<'a, Input, State, Output, Error>
+    for Parser<'a, Input, State, Output, Error>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
+    State: Clone,
 {
-    fn parse(&self, input: Input) -> ParseResult<'a, Input, Output, Error> {
-        self.parser.parse(input)
+    fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Output, Error> {
+        self.parser.parse(input, state)
     }
 }
 
-pub fn match_literal<'a, Input>(to_match: Input) -> Parser<'a, Input, Input, String>
+pub fn match_literal<'a, Input, State, F>(
+    to_match: Input,
+    state_transformer: F,
+) -> Parser<'a, Input, State, Input, String>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
+    State: Clone,
+    F: Fn(State) -> State + 'a,
 {
-    Parser::new(move |mut input: Input| {
+    Parser::new(move |mut input: Input, state: State| {
         let to_match_length = to_match.clone().count();
         let first_input_elements = input.clone().take(to_match_length);
 
@@ -69,7 +76,7 @@ where
                 for _ in 0..to_match_length {
                     input.next();
                 }
-                Ok((to_match.to_owned(), input))
+                Ok((to_match.to_owned(), state_transformer(state), input))
             }
             false => Err(format!(
                 "match_literal failed: expected {:?}, got {:?}",
@@ -79,13 +86,17 @@ where
     })
 }
 
-pub fn match_anything<'a, Input>() -> Parser<'a, Input, <Input as Iterator>::Item, String>
+pub fn match_anything<'a, Input, State, F>(
+    transition_fun: F,
+) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
+    State: Clone,
+    F: Fn(State) -> State + 'a,
 {
-    Parser::new(move |mut input: Input| match input.next() {
-        Some(x) => Ok((x, input)),
+    Parser::new(move |mut input: Input, state: State| match input.next() {
+        Some(x) => Ok((x, transition_fun(state), input)),
         None => Err(format!(
             "Parser Combinator : match_anything failed. expected input got {:?}",
             input
@@ -93,55 +104,37 @@ where
     })
 }
 
-pub fn match_character<'a, Input>(
+//we need to deprecate this
+pub fn match_character<'a, Input, State>(
     character: <Input as Iterator>::Item,
-) -> Parser<'a, Input, <Input as Iterator>::Item, String>
+) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Debug + Eq,
+    State: Clone,
 {
-    Parser::new(move |mut input: Input| match input.next() {
-        Some(x) if x == character => Ok((x, input)),
+    Parser::new(move |mut input: Input, state: State| match input.next() {
+        Some(x) if x == character => Ok((x, state, input)),
         Some(x) => Err(format!("expected {:?}, got {:?}", character, x)),
         None => Err(format!("expected {:?}, got nothing", character)),
     })
-}
-
-pub fn match_literal_str<'a>(expected: &'a str) -> impl Parse<'a, Chars<'a>, Chars<'a>, String> {
-    move |input1: Chars<'a>| {
-        let input = input1.clone().collect::<String>();
-        match input.as_str().get(0..expected.len()) {
-            Some(next) if next == expected => {
-                let (x, y) = (
-                    &input1.as_str()[..expected.len()],
-                    &input1.as_str()[expected.len()..],
-                );
-                //Ok((*(&input1.as_str()[..expected.len()].chars().clone()),
-                //    *(&input1.as_str()[expected.len()..].chars().clone())))},
-                Ok((x.chars(), y.chars()))
-            }
-            _ => Err(format!(
-                "Parser Combinator : match_literal_str failed. expected {:?} got {:?}",
-                expected, input
-            )
-            ),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::{match_character, match_literal};
     use crate::Parse;
-
+    fn id<T>(x: T) -> T {
+        x
+    }
     #[test]
     fn match_character_succeeds() {
         let parser = match_character('1');
 
-        let result = parser.parse("1".chars());
+        let result = parser.parse("1".chars(), ());
 
         match result {
-            Ok(('1', input)) => {
+            Ok(('1', _, input)) => {
                 assert_eq!(input.as_str(), "")
             }
             _ => panic!("failed: {:?}", result),
@@ -152,7 +145,7 @@ mod tests {
     fn match_character_fails() {
         let parser = match_character('1');
 
-        let result = parser.parse("a".chars());
+        let result = parser.parse("a".chars(), ());
 
         match result {
             Err(message) => {
@@ -164,12 +157,12 @@ mod tests {
 
     #[test]
     fn match_literal_of_length_1_succeeds() {
-        let under_test = match_literal("a".chars());
+        let under_test = match_literal("a".chars(), id);
 
-        let result = under_test.parse("abc".chars());
+        let result = under_test.parse("abc".chars(), ());
 
         match result {
-            Ok((output, rest)) => {
+            Ok((output, _, rest)) => {
                 assert_eq!(output.as_str(), "a".to_string());
                 assert_eq!(rest.as_str(), "bc".to_string());
             }
@@ -179,9 +172,9 @@ mod tests {
 
     #[test]
     fn match_literal_of_length_1_fails() {
-        let under_test = match_literal("a".chars());
+        let under_test = match_literal("a".chars(), id);
 
-        let result = under_test.parse("def".chars());
+        let result = under_test.parse("def".chars(), ());
 
         match result {
             Err(message) => {
@@ -197,9 +190,9 @@ mod tests {
 
     #[test]
     fn match_literal_with_empty_input_fails() {
-        let under_test = match_literal("a".chars());
+        let under_test = match_literal("a".chars(), id);
 
-        let result = under_test.parse("".chars());
+        let result = under_test.parse("".chars(), ());
 
         match result {
             Err(message) => {
@@ -214,9 +207,9 @@ mod tests {
 
     #[test]
     fn match_literal_of_size_3_with_input_length_less_than_to_match_fails() {
-        let under_test = match_literal("abc".chars());
+        let under_test = match_literal("abc".chars(), id);
 
-        let result = under_test.parse("a".chars());
+        let result = under_test.parse("a".chars(), ());
 
         match result {
             Err(message) => {
@@ -239,37 +232,37 @@ mod tests {
 
         let under_test = left.or_else(right);
 
-        let result = under_test.parse(input.chars());
+        let result = under_test.parse(input.chars(), ());
 
         match result {
-            Ok(('2', input)) => {
+            Ok(('2', _, input)) => {
                 assert_eq!(input.as_str(), "123")
             }
             _ => panic!("failed: {:?}", result),
         }
 
         let input2 = "21";
-        let result = under_test.parse(input2.chars());
+        let result = under_test.parse(input2.chars(), ());
 
         match result {
-            Ok(('2', input)) => {
+            Ok(('2', _, input)) => {
                 assert_eq!(input.as_str(), "1")
             }
             _ => panic!("failed: {:?}", result),
         }
 
         let input3 = "12";
-        let result = under_test.parse(input3.chars());
+        let result = under_test.parse(input3.chars(), ());
 
         match result {
-            Ok(('1', input)) => {
+            Ok(('1', (), input)) => {
                 assert_eq!(input.as_str(), "2")
             }
             _ => panic!("failed: {:?}", result),
         }
 
         let input4 = "abc";
-        let result = under_test.parse(input4.chars());
+        let result = under_test.parse(input4.chars(), ());
 
         match result {
             Err((left, right)) => {

@@ -5,16 +5,16 @@ use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
+pub struct Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: 'a + Iterator,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
+    parser: Rc<dyn Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
 }
 
-impl<'a, Input, T1, T2, T3, Error1, Error2, Error3>
-    Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
+impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+    Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
@@ -24,59 +24,62 @@ where
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     Error3: Clone + 'a,
+    State: Clone + 'a,
 {
     pub fn new<P1, P2, P3>(parser1: P1, parser2: P2, parser3: P3) -> Self
     where
-        P1: Parse<'a, Input, T1, Error1> + 'a,
-        P2: Parse<'a, Input, T2, Error2> + 'a,
-        P3: Parse<'a, Input, T3, Error3> + 'a,
+        P1: Parse<'a, Input, State, T1, Error1> + 'a,
+        P2: Parse<'a, Input, State, T2, Error2> + 'a,
+        P3: Parse<'a, Input, State, T3, Error3> + 'a,
     {
         Self {
-            parser: Rc::new(move |input| {
-                let (result1, input2) = match parser1.parse(input) {
-                    Ok((result1, input2)) => (result1, input2),
+            parser: Rc::new(move |input, state| {
+                let (result1, state, input2) = match parser1.parse(input, state) {
+                    Ok((result1, state, input2)) => (result1, state, input2),
                     Err(error) => return Err(Either3::Left(error)),
                 };
-                let (result2, input3) = match parser2.parse(input2) {
-                    Ok((result2, input3)) => (result2, input3),
+                let (result2, state, input3) = match parser2.parse(input2, state) {
+                    Ok((result2, state, input3)) => (result2, state, input3),
                     Err(error) => return Err(Either3::Middle(error)),
                 };
-                let (result3, rest) = match parser3.parse(input3) {
-                    Ok((result3, rest)) => (result3, rest),
+                let (result3, state, rest) = match parser3.parse(input3, state) {
+                    Ok((result3, state, rest)) => (result3, state, rest),
                     Err(error) => return Err(Either3::Right(error)),
                 };
-                Ok(((result1, result2, result3), rest))
+                Ok(((result1, result2, result3), state, rest))
             }),
         }
     }
 
-    pub fn first(self) -> Parser<'a, Input, T1, Either3<Error1, Error2, Error3>> {
+    pub fn first(self) -> Parser<'a, Input, State, T1, Either3<Error1, Error2, Error3>> {
         self.transform(move |(first, _, _)| first)
     }
 
-    pub fn second(self) -> Parser<'a, Input, T2, Either3<Error1, Error2, Error3>> {
+    pub fn second(self) -> Parser<'a, Input, State, T2, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, second, _)| second)
     }
-    pub fn third(self) -> Parser<'a, Input, T3, Either3<Error1, Error2, Error3>> {
+    pub fn third(self) -> Parser<'a, Input, State, T3, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, _, third)| third)
     }
 }
 
-impl<'a, Input, T1, T2, T3, Error1, Error2, Error3>
-    Parse<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>>
-    for Triple<'a, Input, T1, T2, T3, Error1, Error2, Error3>
+impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+    Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
+    for Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     Error3: Clone + 'a,
+    State: Clone,
 {
     fn parse(
         &self,
         input: Input,
-    ) -> ParseResult<'a, Input, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
-        self.parser.parse(input)
+        state: State,
+    ) -> ParseResult<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
+        self.parser.parse(input, state)
     }
 }
 
@@ -95,10 +98,10 @@ mod tests {
             match_character('c'),
         );
 
-        let result = under_test.parse("abcdef".chars());
+        let result = under_test.parse("abcdef".chars(), ());
 
         match result {
-            Ok((('a', 'b', 'c'), input)) => {
+            Ok((('a', 'b', 'c'), (), input)) => {
                 assert_eq!(input.as_str(), "def")
             }
             _ => panic!("failed: {:?}", result),
@@ -113,7 +116,7 @@ mod tests {
             match_character('c'),
         );
 
-        let result = under_test.parse("xbcdef".chars());
+        let result = under_test.parse("xbcdef".chars(), ());
 
         match result {
             Err(Either3::Left(message)) => {
@@ -131,7 +134,7 @@ mod tests {
             match_character('c'),
         );
 
-        let result = under_test.parse("axcdef".chars());
+        let result = under_test.parse("axcdef".chars(), ());
 
         match result {
             Err(Either3::Middle(message)) => {
@@ -149,7 +152,7 @@ mod tests {
             match_character('c'),
         );
 
-        let result = under_test.parse("abxdef".chars());
+        let result = under_test.parse("abxdef".chars(), ());
 
         match result {
             Err(Either3::Right(message)) => {
@@ -169,7 +172,7 @@ mod tests {
         .second()
         .or_else(match_character('z'));
 
-        let result = under_test.parse("b".chars());
+        let result = under_test.parse("b".chars(), ());
 
         match result {
             Err((Either3::Left(left), right)) => {
@@ -179,16 +182,19 @@ mod tests {
             _ => panic!("failed: {:?}", result),
         }
     }
+    fn id<T>(x: T) -> T {
+        x
+    }
 
     #[test]
     fn failing_triple_match_literal() {
         let under_test = Triple::new(
-            match_literal("a".chars()),
-            match_literal("b".chars()),
-            match_literal("c".chars()),
+            match_literal("a".chars(), id),
+            match_literal("b".chars(), id),
+            match_literal("c".chars(), id),
         );
 
-        let result = under_test.parse("ab".chars());
+        let result = under_test.parse("ab".chars(), ());
 
         match result {
             Err(Either3::Right(message)) => {
