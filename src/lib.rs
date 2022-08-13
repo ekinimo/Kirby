@@ -426,7 +426,7 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn lefftAssoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
+    fn left_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
         self,
         left_parser: ParserLeft,
         middle_parser: ParserMiddle,
