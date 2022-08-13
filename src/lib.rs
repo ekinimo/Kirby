@@ -254,16 +254,17 @@ where
         })
     }
 
-    fn validate_with_custom_error<PredicateFunction,ErrorFunc>(
+    fn validate_with_custom_error<PredicateFunction,ErrorFunc,OutputError>(
         self,
         predicate: PredicateFunction,
         error_func: ErrorFunc,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser<'a, Input, State, Output, OutputError>
     where
         Self: Sized + 'a,
         Output: 'a + Clone,
+    OutputError : 'a + Clone+From<Error>,
         PredicateFunction: Fn(&Output) -> bool + 'a,
-    ErrorFunc:Fn(Output,State,Input) -> Error + 'a
+    ErrorFunc:Fn(Output,State,Input) -> OutputError + 'a
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
