@@ -254,6 +254,26 @@ where
         })
     }
 
+    fn validate_with_custom_error<PredicateFunction,ErrorFunc>(
+        self,
+        predicate: PredicateFunction,
+        error_func: ErrorFunc,
+    ) -> Parser<'a, Input, State, Output, Error>
+    where
+        Self: Sized + 'a,
+        Output: 'a + Clone,
+        PredicateFunction: Fn(&Output) -> bool + 'a,
+    ErrorFunc:Fn(Output,State,Input) -> Error + 'a
+    {
+        Parser::new(move |input: Input, state: State| {
+            let (value, state, next_input) = self.parse(input, state)?;
+            if predicate(&value) {
+                Ok((value, state, next_input))
+            } else {
+                Err(error_func(value,state,next_input))
+            }
+        })
+    }
     fn peek_and_validate<PredicateFunction>(
         self,
         predicate: PredicateFunction,
