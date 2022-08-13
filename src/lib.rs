@@ -34,6 +34,18 @@ where
         })
     }
 
+    fn with_error_using_state<F, Error2>(self, error_mapper: F) -> Parser<'a, Input, State, Output, Error2>
+    where
+        Self: Sized + 'a,
+        F: Fn(Error,State ,Input) -> Error2 + 'a,
+        Error2: Clone,
+    {
+        Parser::new(move |input: Input, state: State| {
+            self.parse(input.clone(), state.clone())
+                .map_err(|error_message| error_mapper(error_message, state,input))
+        })
+    }
+
     fn transform<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
