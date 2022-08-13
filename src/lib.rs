@@ -426,6 +426,24 @@ where
         Triple::new(self, parser2, parser3)
     }
 
+    fn lefftAssoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
+        self,
+        left_parser: ParserLeft,
+        middle_parser: ParserMiddle,
+    ) -> Pair<'a, Input, State, LeftOutput, Vec<(MiddleOutput, Output)>, LeftError, Either<MiddleError, Error>>
+    where
+        Self: Sized + 'a,
+        LeftOutput: 'a,
+        ParserLeft: Parse<'a, Input, State, LeftOutput, LeftError> + 'a,
+        MiddleOutput: 'a,
+        ParserMiddle: Parse<'a, Input, State, MiddleOutput, MiddleError> + 'a,
+        LeftError: Clone + 'a,
+        MiddleError: Clone + 'a,
+        State: 'a,
+    {
+       left_parser.pair(middle_parser.pair(self).zero_or_more())
+    }
+
     fn either<Parser2, Output2, Error2>(
         self,
         parser2: Parser2,
