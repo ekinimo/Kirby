@@ -477,9 +477,10 @@ where
 
     fn left_assoc<ParserRight, ParserMiddle, RightOutput, MiddleOutput, RightError, MiddleError>(
         self,
-        right_parser: ParserRight,
         middle_parser: ParserMiddle,
-    ) -> Pair<'a, Input, State, Output, Vec<(MiddleOutput, RightOutput)>, Error, Either<MiddleError, RightError>>
+        right_parser: ParserRight,
+        
+    ) -> Pair<'a, Input, State, Output, (MiddleOutput, RightOutput), Error, Either<MiddleError, RightError>>
     where
         Self: Sized + 'a,
         RightOutput: 'a,
@@ -490,7 +491,7 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-       self.pair(middle_parser.pair(right_parser).zero_or_more())
+       self.pair(middle_parser.pair(right_parser))
     }
 
     fn right_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
