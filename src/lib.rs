@@ -482,7 +482,7 @@ where
         middle_parser: ParserMiddle,
         right_parser: ParserRight,
         
-    ) ->EitherParser<'a, Input, State, (Output, MiddleOutput, RightOutput), RightOutput, Either3<Error, MiddleError, RightError>, RightError>
+    ) ->EitherParser<'a, Input, State, (RightOutput, MiddleOutput, Output), RightOutput, Either3<RightError, MiddleError, Error>, RightError>
         
     where
         Self: Sized + 'a + Clone,
@@ -494,7 +494,7 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-        EitherParser::new(Triple::new(self, middle_parser, right_parser.clone()), right_parser)
+        EitherParser::new(Triple::new(right_parser.clone(), middle_parser, self), right_parser)
        
     }
 
@@ -502,7 +502,7 @@ where
         self,
         left_parser: ParserLeft ,
         middle_parser: ParserMiddle,
-    ) -> EitherParser<'a, Input, State, (LeftOutput, MiddleOutput, Output), LeftOutput, Either3<LeftError, MiddleError, Error>, LeftError>
+    ) -> EitherParser<'a, Input, State, (Output, MiddleOutput, LeftOutput), LeftOutput, Either3<Error, MiddleError, LeftError>, LeftError>
     //Pair<'a, Input, State, LeftOutput, Vec<(MiddleOutput, Output)>, LeftError, Either<MiddleError, Error>>
     where
         Self: Sized + 'a,
@@ -514,7 +514,7 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-        EitherParser::new(Triple::new(left_parser.clone(), middle_parser, self), left_parser)
+        EitherParser::new(Triple::new(self, middle_parser, left_parser.clone()), left_parser)
         //left_parser.pair(middle_parser.pair(self).zero_or_more())
     }
 
