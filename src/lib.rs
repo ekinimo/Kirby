@@ -1,3 +1,5 @@
+use either::Either3;
+
 use crate::either::{Either, EitherParser};
 use crate::pair::Pair;
 use crate::parser::Parser;
@@ -480,18 +482,20 @@ where
         middle_parser: ParserMiddle,
         right_parser: ParserRight,
         
-    ) -> Triple<'a, Input, State, RightOutput, MiddleOutput, Output, RightError, MiddleError, Error>
+    ) ->EitherParser<'a, Input, State, (RightOutput, MiddleOutput, Output), RightOutput, Either3<RightError, MiddleError, Error>, RightError>
+        
     where
         Self: Sized + 'a,
         RightOutput: 'a,
-        ParserRight: Parse<'a, Input, State, RightOutput, RightError> + 'a,
+        ParserRight: Parse<'a, Input, State, RightOutput, RightError> + 'a + Clone,
         MiddleOutput: 'a,
         ParserMiddle: Parse<'a, Input, State, MiddleOutput, MiddleError> + 'a,
         RightError: Clone + 'a,
         MiddleError: Clone + 'a,
         State: 'a,
     {
-       Triple::new(right_parser, middle_parser, self)
+        EitherParser::new(Triple::new(right_parser.clone(), middle_parser, self), right_parser)
+       
     }
 
     fn right_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
