@@ -480,7 +480,7 @@ where
         middle_parser: ParserMiddle,
         right_parser: ParserRight,
         
-    ) -> Pair<'a, Input, State, Output, (MiddleOutput, RightOutput), Error, Either<MiddleError, RightError>>
+    ) -> Triple<'a, Input, State, RightOutput, MiddleOutput, Output, RightError, MiddleError, Error>
     where
         Self: Sized + 'a,
         RightOutput: 'a,
@@ -491,7 +491,7 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-       self.pair(middle_parser.pair(right_parser))
+       Triple::new(right_parser, middle_parser, self)
     }
 
     fn right_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
