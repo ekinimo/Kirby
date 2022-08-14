@@ -262,7 +262,7 @@ where
     where
         Self: Sized + 'a,
         Output: 'a + Clone,
-    OutputError : 'a + Clone+From<Error>,
+    OutputError : 'a + Clone + From<Error>,
         PredicateFunction: Fn(&Output) -> bool + 'a,
     ErrorFunc:Fn(Output,State,Input) -> OutputError + 'a
     {
@@ -429,6 +429,34 @@ where
         Pair::new(self, parser2)
     }
 
+    fn followed_by<Parser2, Output2, Error2,Error3,Output3,TransformFunction,ErrorMapper1,ErrorMapper2>(
+        self,
+        parser2: Parser2,
+        transform_function: TransformFunction,
+        error_mapper1: ErrorMapper1,
+        error_mapper2: ErrorMapper2,
+    ) ->Parser<'a, Input, State, Output3, Error3>
+    where
+        Self: Sized + 'a,
+        Output2: 'a,
+        Parser2: Parse<'a, Input, State, Output2, Error2> + 'a,
+        Error2: Clone + 'a,
+        Error3: Clone + 'a,
+        Output3: Clone + 'a,
+    TransformFunction: Fn(Output,Output2)->Output3 + 'a,
+    ErrorMapper1: Fn(Error,State,Input)->Error3 + 'a,
+        ErrorMapper2: Fn(Error2,State,Input)->Error3 + 'a,
+
+
+        State: 'a,
+    {
+        self.pair(parser2).transform(move |(x,y)| transform_function(x,y)).with_error_using_state( move |err,state,input| {
+            match err {
+                Either::Left(left) => error_mapper1(left,state,input),
+                Either::Right(left) => error_mapper2(left,state,input),
+        }})
+    }
+
     fn triple<Parser2, Parser3, Output2, Output3, Error2, Error3>(
         self,
         parser2: Parser2,
@@ -447,7 +475,25 @@ where
         Triple::new(self, parser2, parser3)
     }
 
-    fn left_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
+    fn left_assoc<ParserRight, ParserMiddle, RightOutput, MiddleOutput, RightError, MiddleError>(
+        self,
+        right_parser: ParserRight,
+        middle_parser: ParserMiddle,
+    ) -> Pair<'a, Input, State, Output, Vec<(MiddleOutput, RightOutput)>, Error, Either<MiddleError, RightError>>
+    where
+        Self: Sized + 'a,
+        RightOutput: 'a,
+        ParserRight: Parse<'a, Input, State, RightOutput, RightError> + 'a,
+        MiddleOutput: 'a,
+        ParserMiddle: Parse<'a, Input, State, MiddleOutput, MiddleError> + 'a,
+        RightError: Clone + 'a,
+        MiddleError: Clone + 'a,
+        State: 'a,
+    {
+       self.pair(middle_parser.pair(right_parser).zero_or_more())
+    }
+
+    fn right_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
         self,
         left_parser: ParserLeft,
         middle_parser: ParserMiddle,
@@ -462,7 +508,7 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-       left_parser.pair(middle_parser.pair(self).zero_or_more())
+        left_parser.pair(middle_parser.pair(self).zero_or_more())
     }
 
     fn either<Parser2, Output2, Error2>(
