@@ -83,6 +83,47 @@ where
     }
 }
 
+
+
+impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3,A,B,C>
+    Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
+    for (A,B,C)//Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+where
+    Input: Clone + 'a + Iterator,
+<Input as Iterator>::Item: Eq,
+    Error1: Clone + 'a,
+    Error2: Clone + 'a,
+    Error3: Clone + 'a,
+    State: Clone,
+T1 : 'a,
+T2 : 'a,
+T3 : 'a,
+    A:Parse<'a, Input, State, T1, Error1>,
+    B:Parse<'a, Input, State, T2, Error2>,
+    C:Parse<'a, Input, State, T3, Error3>,
+{
+    fn parse(
+        &self,
+        input: Input,
+        state: State,
+    ) -> ParseResult<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
+        let (result1, state, input2) = match self.0.parse(input, state) {
+            Ok((result1, state, input2)) => (result1, state, input2),
+            Err(error) => return Err(Either3::Left(error)),
+        };
+        let (result2, state, input3) = match self.1.parse(input2, state) {
+            Ok((result2, state, input3)) => (result2, state, input3),
+            Err(error) => return Err(Either3::Middle(error)),
+        };
+        let (result3, state, rest) = match self.2.parse(input3, state) {
+            Ok((result3, state, rest)) => (result3, state, rest),
+            Err(error) => return Err(Either3::Right(error)),
+        };
+        Ok(((result1, result2, result3), state, rest))     
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use crate::either::Either3;
