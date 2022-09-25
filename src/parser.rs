@@ -1,4 +1,4 @@
-use std::{fmt::Debug, rc::Rc, str::Chars};
+use std::{cell::RefCell, fmt::Debug, rc::Rc, str::Chars, marker::PhantomData};
 
 use crate::{Parse, ParseResult};
 
@@ -40,10 +40,73 @@ where
     Input: Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     Error: Clone + 'a,
-    State: Clone,
+    State: Clone + 'a,
 {
     fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Output, Error> {
         self.parser.parse(input, state)
+    }
+}
+
+#[derive(Clone)]
+pub struct ForwardRef<Input, Output, State, Error,P>
+where
+    Input:Clone  + Iterator+ 'static,
+<Input as Iterator>::Item: Eq,
+    Error: Clone + 'static,
+    Output: Clone ,
+    State: Clone + 'static,
+    P : Parse<'static, Input, Output, State, Error>
+{
+    phantom1: PhantomData<Input>,
+    phantom2: PhantomData<Output>,
+    phantom3: PhantomData<State>,
+    phantom4: PhantomData<Error>,
+    
+    parser: Rc<RefCell<Option<P>>>,
+}
+
+impl<Input, Output, Error, State,P> ForwardRef< Input, Output, State, Error,P>
+where
+    Input: Clone +  Iterator,
+    <Input as Iterator>::Item: Eq,
+    Error: Clone ,
+    Output: Clone ,
+    State: Clone ,
+P : for<'a >Parse<'a, Input, Output, State, Error>
+{
+    pub fn new() -> Self {
+        Self {
+            parser: Rc::new(RefCell::new(None)),
+            phantom1:PhantomData,
+            phantom2:PhantomData,
+            phantom3:PhantomData,
+            phantom4:PhantomData,
+        }
+    }
+    pub fn set_parser(&mut self, parser: P) {
+        *self.parser.borrow_mut() = Some(parser)
+    }
+}
+
+impl< Input, State, Output, Error,P> Parse<'static, Input, State, Output, Error>
+    for
+    ForwardRef< Input, State, Output, Error,P>
+where
+    Input: Clone  + Iterator ,
+    <Input as Iterator>::Item: Eq,
+    Error: Clone + 'static,
+    State: Clone + 'static,
+    Output: Clone  + 'static,
+P : Parse<'static, Input,  State,Output, Error> + Fn(Input, State)->Result<(Output, State, Input), Error>+'static
+{
+    fn parse(&self, input: Input, state: State) -> ParseResult<'static, Input, State, Output, Error> {
+        //self.parser.parse(input, state)
+        match &*self.parser.borrow() {
+            None => {
+                panic!("Forward Ref is not set yet")
+            }
+            Some(p) => p.parse(input, state),
+        }
     }
 }
 
@@ -122,11 +185,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::parser::{match_character, match_literal};
-    use crate::Parse;
+
+    use super::ForwardRef;
     fn id<T>(x: T) -> T {
         x
     }
+
     #[test]
     fn match_character_succeeds() {
         let parser = match_character('1');
@@ -136,6 +202,106 @@ mod tests {
         match result {
             Ok(('1', _, input)) => {
                 assert_eq!(input.as_str(), "")
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn forward_succeeds() {
+        use std::str::Chars;
+        let mut a = ForwardRef::new();
+        let b = a.clone().triple(match_character('1'), a.clone());
+        a.set_parser(&|i, s| match_character('3').parse(i, s));
+        let result = b.parse("313".chars(), ());
+
+        match result {
+            Ok((output, _, rest)) => {
+                assert_eq!(output, ('3', '1', '3'));
+            }
+            _ => panic!("failed: {:?}", result),
+        }
+    }
+
+    #[test]
+    fn forward_succeeds_2() {
+        fn increment(x: i32) -> i32 {
+            /*println!("hello {x}");*/
+            x + 1
+        }
+
+        use std::str::Chars;
+
+        let parse_digit = vec![
+            Parser::new(match_literal("1".chars(), increment)),
+            Parser::new(match_literal("2".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("4".chars(), increment)),
+            Parser::new(match_literal("5".chars(), increment)),
+            Parser::new(match_literal("6".chars(), increment)),
+            Parser::new(match_literal("7".chars(), increment)),
+            Parser::new(match_literal("8".chars(), increment)),
+            Parser::new(match_literal("9".chars(), increment)),
+            Parser::new(match_literal("0".chars(), increment)),
+        ]
+        .iter()
+        .fold(
+            Parser::new(match_literal("0".chars(), increment)),
+            |x: Parser<Chars, i32, Chars, String>, y: &Parser<Chars, i32, Chars, String>| {
+                x.or_else(y.clone()).with_error(|_, _| "error".to_string())
+            },
+        );
+        let parse_digits = parse_digit.clone().one_or_more();
+
+        let parse_natural_numbers = parse_digits.clone().transform(|s| {
+            let mut digits = String::from("");
+            for digit in s {
+                digits.push_str(digit.as_str());
+            }
+            //    println!("digits = {:?}", digits);
+            digits.parse::<i32>().unwrap()
+        });
+
+        let mut expr = ForwardRef::new();
+
+        let factor = match_literal("(".chars(), increment)
+            .triple(expr.clone(), match_literal(")".chars(), increment))
+            .second()
+            .or_else(parse_natural_numbers.clone())
+            .with_error(|(_, _), _| "error".to_string());
+        let term = factor
+            .clone()
+            .pair(
+                match_literal("*".chars(), increment)
+                    .pair(factor.clone())
+                    .second()
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
+            .with_error(|_, _| "error".to_string());
+        let mut top_level = expr
+            .clone()
+            .pair(match_literal(";".chars(), increment))
+            .first()
+            .with_error(|_, _| "error".to_string());
+
+        let expr2:Parser<Chars,i32,i32,String>  = term
+            .clone()
+            .pair(
+                match_literal("+".chars(), increment)
+                    .pair(term.clone())
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
+            .with_error(|_, _| "error".to_string());
+
+        expr.set_parser(move |i,s| expr2.clone().parse(i, s));
+
+        let result = expr.parse("1+2*3".chars(), 0);
+        match result {
+            Ok((output, _, rest)) => {
+                assert_eq!(output, 7);
             }
             _ => panic!("failed: {:?}", result),
         }

@@ -1,3 +1,5 @@
+#![feature(once_cell)]
+#![feature(unboxed_closures)]
 use either::Either3;
 
 use crate::either::{Either, EitherParser};
@@ -13,6 +15,57 @@ pub mod repeated;
 pub mod triple;
 
 pub type ParseResult<'a, Input, State, Output, Error> = Result<(Output, State, Input), Error>;
+
+pub trait SizedParse<'a, Input, State, Output, Error>:
+    Sized + Parse<'a, Input, State, Output, Error>
+where
+    Input: Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq,
+    Output: 'a,
+    Error: Clone + 'a,
+    State: Clone,
+{
+}
+
+impl<'a, Input, State, Output, Error, T> SizedParse<'a, Input, State, Output, Error> for T
+where
+    Input: Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq,
+    Output: 'a,
+    Error: Clone + 'a,
+    State: Clone,
+    T: Sized + Parse<'a, Input, State, Output, Error>,
+{
+}
+
+impl<'a, Input, State, Output, Error, Output2, Error2>
+    std::ops::BitOr<&'a dyn Parse<'a, Input, State, Output2, Error2>>
+    for &'a dyn Parse<'a, Input, State, Output, Error>
+where
+    Input: Clone + 'a + Iterator,
+    <Input as Iterator>::Item: Eq,
+    Output: 'a,
+    Error: Clone + 'a,
+    Output2: 'a,
+    Error2: Clone + 'a,
+
+    State: Clone,
+    Self: Sized,
+{
+    type Output = Parser<'a, Input, State, Either<Output, Output2>, (Error, Error2)>;
+
+    fn bitor(self, rhs: &'a dyn Parse<'a, Input, State, Output2, Error2>) -> Self::Output {
+        Parser::new(move 
+            |input: Input, state: State| match self.parse(input.clone(), state.clone()) {
+                Err(first_error_message) => match rhs.parse(input, state) {
+                    Err(second_error_message) => Err((first_error_message, second_error_message)),
+                    Ok((output, state, input)) => Ok((Either::Right(output), state, input)),
+                },
+                Ok((output, state, input)) => Ok((Either::Left(output), state, input)),
+            },
+        )
+    }
+}
 
 pub trait Parse<'a, Input, State, Output, Error>
 where
@@ -36,15 +89,18 @@ where
         })
     }
 
-    fn with_error_using_state<F, Error2>(self, error_mapper: F) -> Parser<'a, Input, State, Output, Error2>
+    fn with_error_using_state<F, Error2>(
+        self,
+        error_mapper: F,
+    ) -> Parser<'a, Input, State, Output, Error2>
     where
         Self: Sized + 'a,
-        F: Fn(Error,State ,Input) -> Error2 + 'a,
+        F: Fn(Error, State, Input) -> Error2 + 'a,
         Error2: Clone,
     {
         Parser::new(move |input: Input, state: State| {
             self.parse(input.clone(), state.clone())
-                .map_err(|error_message| error_mapper(error_message, state,input))
+                .map_err(|error_message| error_mapper(error_message, state, input))
         })
     }
 
@@ -98,14 +154,13 @@ where
     where
         Self: Sized + 'a,
         TransformFunction: Fn(State, Output, &Input) -> State + 'a,
-    Output:Clone,
+        Output: Clone,
     {
         Parser::new(move |input: Input, state| {
-            self.parse(input, state)
-                .map(|(result, state, rest)| {
-                    let state = transform_function(state, result.clone(), &rest);
-                    (result, state, rest)
-                })
+            self.parse(input, state).map(|(result, state, rest)| {
+                let state = transform_function(state, result.clone(), &rest);
+                (result, state, rest)
+            })
         })
     }
 
@@ -118,11 +173,10 @@ where
         TransformFunction: Fn(State, &Output, &Input) -> State + 'a,
     {
         Parser::new(move |input: Input, state| {
-            self.parse(input, state)
-                .map(|(result, state, rest)| {
-                    let state = transform_function(state, &result, &rest);
-                    (result, state, rest)
-                })
+            self.parse(input, state).map(|(result, state, rest)| {
+                let state = transform_function(state, &result, &rest);
+                (result, state, rest)
+            })
         })
     }
     fn transform_with_error<TransformFunction, ErrorFunction, Output2, Error2>(
@@ -227,11 +281,7 @@ where
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map(|(result, state, rest)| {
-                (
-                    transform_function(result, &state, &rest),
-                    state,
-                    rest,
-                )
+                (transform_function(result, &state, &rest), state, rest)
             })
         })
     }
@@ -256,7 +306,7 @@ where
         })
     }
 
-    fn validate_with_custom_error<PredicateFunction,ErrorFunc,OutputError>(
+    fn validate_with_custom_error<PredicateFunction, ErrorFunc, OutputError>(
         self,
         predicate: PredicateFunction,
         error_func: ErrorFunc,
@@ -264,16 +314,16 @@ where
     where
         Self: Sized + 'a,
         Output: 'a + Clone,
-    OutputError : 'a + Clone + From<Error>,
+        OutputError: 'a + Clone + From<Error>,
         PredicateFunction: Fn(&Output) -> bool + 'a,
-    ErrorFunc:Fn(Output,State,Input) -> OutputError + 'a
+        ErrorFunc: Fn(Output, State, Input) -> OutputError + 'a,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
             if predicate(&value) {
                 Ok((value, state, next_input))
             } else {
-                Err(error_func(value,state,next_input))
+                Err(error_func(value, state, next_input))
             }
         })
     }
@@ -431,13 +481,22 @@ where
         Pair::new(self, parser2)
     }
 
-    fn followed_by<Parser2, Output2, Error2,Error3,Output3,TransformFunction,ErrorMapper1,ErrorMapper2>(
+    fn followed_by<
+        Parser2,
+        Output2,
+        Error2,
+        Error3,
+        Output3,
+        TransformFunction,
+        ErrorMapper1,
+        ErrorMapper2,
+    >(
         self,
         parser2: Parser2,
         transform_function: TransformFunction,
         error_mapper1: ErrorMapper1,
         error_mapper2: ErrorMapper2,
-    ) ->Parser<'a, Input, State, Output3, Error3>
+    ) -> Parser<'a, Input, State, Output3, Error3>
     where
         Self: Sized + 'a,
         Output2: 'a,
@@ -445,18 +504,18 @@ where
         Error2: Clone + 'a,
         Error3: Clone + 'a,
         Output3: Clone + 'a,
-    TransformFunction: Fn(Output,Output2)->Output3 + 'a,
-    ErrorMapper1: Fn(Error,State,Input)->Error3 + 'a,
-        ErrorMapper2: Fn(Error2,State,Input)->Error3 + 'a,
-
+        TransformFunction: Fn(Output, Output2) -> Output3 + 'a,
+        ErrorMapper1: Fn(Error, State, Input) -> Error3 + 'a,
+        ErrorMapper2: Fn(Error2, State, Input) -> Error3 + 'a,
 
         State: 'a,
     {
-        self.pair(parser2).transform(move |(x,y)| transform_function(x,y)).with_error_using_state( move |err,state,input| {
-            match err {
-                Either::Left(left) => error_mapper1(left,state,input),
-                Either::Right(left) => error_mapper2(left,state,input),
-        }})
+        self.pair(parser2)
+            .transform(move |(x, y)| transform_function(x, y))
+            .with_error_using_state(move |err, state, input| match err {
+                Either::Left(left) => error_mapper1(left, state, input),
+                Either::Right(left) => error_mapper2(left, state, input),
+            })
     }
 
     fn triple<Parser2, Parser3, Output2, Output3, Error2, Error3>(
@@ -481,9 +540,15 @@ where
         self,
         middle_parser: ParserMiddle,
         right_parser: ParserRight,
-        
-    ) ->EitherParser<'a, Input, State, (RightOutput, MiddleOutput, Output), RightOutput, Either3<RightError, MiddleError, Error>, RightError>
-        
+    ) -> EitherParser<
+        'a,
+        Input,
+        State,
+        (RightOutput, MiddleOutput, Output),
+        RightOutput,
+        Either3<RightError, MiddleError, Error>,
+        RightError,
+    >
     where
         Self: Sized + 'a + Clone,
         RightOutput: 'a,
@@ -494,16 +559,25 @@ where
         MiddleError: Clone + 'a,
         State: 'a,
     {
-        EitherParser::new(Triple::new(right_parser.clone(), middle_parser, self), right_parser)
-       
+        EitherParser::new(
+            Triple::new(right_parser.clone(), middle_parser, self),
+            right_parser,
+        )
     }
 
     fn right_assoc<ParserLeft, ParserMiddle, LeftOutput, MiddleOutput, LeftError, MiddleError>(
         self,
-        left_parser: ParserLeft ,
+        left_parser: ParserLeft,
         middle_parser: ParserMiddle,
-    ) -> //EitherParser<'a, Input, State, (Output, MiddleOutput, LeftOutput), LeftOutput, Either3<Error, MiddleError, LeftError>, LeftError>
-    Pair<'a, Input, State, LeftOutput, Vec<(MiddleOutput, LeftOutput)>, LeftError, Either<MiddleError, LeftError>>
+    ) -> Pair<
+        'a,
+        Input,
+        State,
+        LeftOutput,
+        Vec<(MiddleOutput, LeftOutput)>,
+        LeftError,
+        Either<MiddleError, LeftError>,
+    >
     where
         Self: Sized + 'a,
         LeftOutput: 'a,
@@ -515,7 +589,9 @@ where
         State: 'a,
     {
         //EitherParser::new(Triple::new(self, middle_parser, left_parser.clone()), left_parser)
-        left_parser.clone().pair(middle_parser.pair(left_parser).zero_or_more())
+        left_parser
+            .clone()
+            .pair(middle_parser.pair(left_parser).zero_or_more())
     }
 
     fn either<Parser2, Output2, Error2>(
@@ -548,8 +624,6 @@ where
         //todo!();
         RepeatedParser::one_or_more(self)
     }
-
-
 
     fn separated_by<P, Output2, Error2>(
         self,
