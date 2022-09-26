@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Debug, rc::Rc, str::Chars, marker::PhantomData};
+use std::{cell::RefCell, fmt::Debug, rc::Rc, marker::PhantomData};
 
 use crate::{Parse, ParseResult};
 
@@ -65,6 +65,23 @@ where
     parser: Rc<RefCell<Option<P>>>,
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 impl<Input, Output, Error, State,P> ForwardRef< Input, Output, State, Error,P>
 where
     Input: Clone +  Iterator,
@@ -87,6 +104,37 @@ P : for<'a >Parse<'a, Input, Output, State, Error>
         *self.parser.borrow_mut() = Some(parser)
     }
 }
+
+
+
+
+
+
+
+
+impl<Input, Output, Error, State,P> Default for ForwardRef< Input, Output, State, Error,P>
+where
+    Input:Clone  + Iterator+ 'static,
+<Input as Iterator>::Item: Eq,
+    Error: Clone + 'static,
+    Output: Clone ,
+    State: Clone + 'static,
+P : Parse<'static, Input, Output, State, Error>
+{
+    fn default() -> Self {
+        Self { phantom1: Default::default(), phantom2: Default::default(), phantom3: Default::default(), phantom4: Default::default(), parser: Default::default() }
+    }
+}
+
+
+
+
+
+
+
+
+
+
 
 impl< Input, State, Output, Error,P> Parse<'static, Input, State, Output, Error>
     for
@@ -209,14 +257,14 @@ mod tests {
 
     #[test]
     fn forward_succeeds() {
-        use std::str::Chars;
+        
         let mut a = ForwardRef::new();
         let b = a.clone().triple(match_character('1'), a.clone());
         a.set_parser(&|i, s| match_character('3').parse(i, s));
         let result = b.parse("313".chars(), ());
 
         match result {
-            Ok((output, _, rest)) => {
+            Ok((output, _, _rest)) => {
                 assert_eq!(output, ('3', '1', '3'));
             }
             _ => panic!("failed: {:?}", result),
@@ -280,7 +328,7 @@ mod tests {
             )
             .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
             .with_error(|_, _| "error".to_string());
-        let mut top_level = expr
+        let _top_level = expr
             .clone()
             .pair(match_literal(";".chars(), increment))
             .first()
@@ -300,7 +348,7 @@ mod tests {
 
         let result = expr.parse("1+2*3".chars(), 0);
         match result {
-            Ok((output, _, rest)) => {
+            Ok((output, _, _rest)) => {
                 assert_eq!(output, 7);
             }
             _ => panic!("failed: {:?}", result),

@@ -16,57 +16,6 @@ pub mod triple;
 
 pub type ParseResult<'a, Input, State, Output, Error> = Result<(Output, State, Input), Error>;
 
-pub trait SizedParse<'a, Input, State, Output, Error>:
-    Sized + Parse<'a, Input, State, Output, Error>
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    State: Clone,
-{
-}
-
-impl<'a, Input, State, Output, Error, T> SizedParse<'a, Input, State, Output, Error> for T
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    State: Clone,
-    T: Sized + Parse<'a, Input, State, Output, Error>,
-{
-}
-
-impl<'a, Input, State, Output, Error, Output2, Error2>
-    std::ops::BitOr<&'a dyn Parse<'a, Input, State, Output2, Error2>>
-    for &'a dyn Parse<'a, Input, State, Output, Error>
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    Output2: 'a,
-    Error2: Clone + 'a,
-
-    State: Clone,
-    Self: Sized,
-{
-    type Output = Parser<'a, Input, State, Either<Output, Output2>, (Error, Error2)>;
-
-    fn bitor(self, rhs: &'a dyn Parse<'a, Input, State, Output2, Error2>) -> Self::Output {
-        Parser::new(move 
-            |input: Input, state: State| match self.parse(input.clone(), state.clone()) {
-                Err(first_error_message) => match rhs.parse(input, state) {
-                    Err(second_error_message) => Err((first_error_message, second_error_message)),
-                    Ok((output, state, input)) => Ok((Either::Right(output), state, input)),
-                },
-                Ok((output, state, input)) => Ok((Either::Left(output), state, input)),
-            },
-        )
-    }
-}
-
 pub trait Parse<'a, Input, State, Output, Error>
 where
     Input: Clone + 'a + Iterator,
