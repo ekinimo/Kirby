@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Debug, rc::Rc, str::Chars, marker::PhantomData};
+use std::{cell::RefCell, fmt::Debug, rc::Rc, marker::PhantomData};
 
 use crate::{Parse, ParseResult};
 
@@ -9,24 +9,25 @@ use crate::{Parse, ParseResult};
 // }
 
 #[derive(Clone)]
-pub struct Parser<'a, Input, State, Output, Error>
+pub struct Parser< Input, State, Output, Error>
 where
-    Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq + 'a,
+    Input: 'static+ Iterator,
+    <Input as Iterator>::Item: Eq + 'static,
 {
-    parser: Rc<dyn Parse<'a, Input, State, Output, Error> + 'a>,
+    parser: Rc<dyn Parse<Input, State, Output, Error> + 'static>,
 }
 
-impl<'a, Input, State, Output, Error> Parser<'a, Input, State, Output, Error>
+impl< Input, State, Output, Error> Parser< Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error: Clone + 'a,
+    Error: Clone + 'static,
     State: Clone,
+Output: 'static
 {
     pub fn new<P>(parser: P) -> Self
     where
-        P: Parse<'a, Input, State, Output, Error> + 'a,
+        P: Parse< Input, State, Output, Error> + 'static,
     {
         Self {
             parser: Rc::from(parser),
@@ -34,18 +35,33 @@ where
     }
 }
 
-impl<'a, Input, State, Output, Error> Parse<'a, Input, State, Output, Error>
-    for Parser<'a, Input, State, Output, Error>
+impl< Input, State, Output, Error> Parse< Input, State, Output, Error>
+    for Parser< Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error: Clone + 'a,
-    State: Clone + 'a,
+    Error: Clone + 'static,
+    State: Clone + 'static,
+    Output: 'static
 {
-    fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Output, Error> {
+    fn parse(&self, input: Input, state: State) -> ParseResult< Input, State, Output, Error> {
         self.parser.parse(input, state)
     }
 }
+
+ impl <  Input, State, O, Error> FnOnce<(Input,State )> for  Parser< Input, State, O, Error>where
+     Input: Clone + 'static + Iterator,
+ <Input as Iterator>::Item: Eq,
+     O: 'static,
+     Error: Clone + 'static,
+     State: Clone + 'static,
+ {
+     type Output = ParseResult< Input, State, O, Error>;
+     extern "rust-call" fn call_once(self, b: (Input,State )) -> Self::Output {
+         self.parse(b.0,b.1)
+     }
+ }
+
 
 #[derive(Clone)]
 pub struct ForwardRef<Input, Output, State, Error,P>
@@ -55,7 +71,7 @@ where
     Error: Clone + 'static,
     Output: Clone ,
     State: Clone + 'static,
-    P : Parse<'static, Input, Output, State, Error>
+    P : Parse< Input, Output, State, Error>
 {
     phantom1: PhantomData<Input>,
     phantom2: PhantomData<Output>,
@@ -72,7 +88,7 @@ where
     Error: Clone ,
     Output: Clone ,
     State: Clone ,
-P : for<'a >Parse<'a, Input, Output, State, Error>
+P : Parse< Input, Output, State, Error>
 {
     pub fn new() -> Self {
         Self {
@@ -88,7 +104,7 @@ P : for<'a >Parse<'a, Input, Output, State, Error>
     }
 }
 
-impl< Input, State, Output, Error,P> Parse<'static, Input, State, Output, Error>
+impl< Input, State, Output, Error,P> Parse< Input, State, Output, Error>
     for
     ForwardRef< Input, State, Output, Error,P>
 where
@@ -97,9 +113,9 @@ where
     Error: Clone + 'static,
     State: Clone + 'static,
     Output: Clone  + 'static,
-P : Parse<'static, Input,  State,Output, Error> + Fn(Input, State)->Result<(Output, State, Input), Error>+'static
+P :  Parse< Input,  State,Output, Error> 
 {
-    fn parse(&self, input: Input, state: State) -> ParseResult<'static, Input, State, Output, Error> {
+    fn parse(&self, input: Input, state: State) -> ParseResult< Input, State, Output, Error> {
         //self.parser.parse(input, state)
         match &*self.parser.borrow() {
             None => {
@@ -110,15 +126,33 @@ P : Parse<'static, Input,  State,Output, Error> + Fn(Input, State)->Result<(Outp
     }
 }
 
-pub fn match_literal<'a, Input, State, F>(
+
+
+ impl <  Input, State, O, Error,P> FnOnce<(Input,State )> for  ForwardRef< Input, State, O, Error,P>where
+     Input: Clone + 'static + Iterator,
+ <Input as Iterator>::Item: Eq,
+     O: Clone +'static,
+     Error: Clone + 'static,
+     State: Clone + 'static,
+ P : Parse< Input,  State,O, Error> + Fn(Input, State)->Result<(O, State, Input), Error>+'static
+ {
+     type Output = ParseResult< Input, State, O, Error>;
+     extern "rust-call" fn call_once(self, b: (Input,State )) -> Self::Output {
+         self.parse(b.0,b.1)
+     }
+ }
+
+
+
+pub fn match_literal< Input, State, F>(
     to_match: Input,
     state_transformer: F,
-) -> Parser<'a, Input, State, Input, String>
+) -> Parser< Input, State, Input, String>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Debug + Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
     State: Clone,
-    F: Fn(State) -> State + 'a,
+    F: Fn(State) -> State + 'static,
 {
     Parser::new(move |mut input: Input, state: State| {
         let to_match_length = to_match.clone().count();
@@ -149,14 +183,14 @@ where
     })
 }
 
-pub fn match_anything<'a, Input, State, F>(
+pub fn match_anything< Input, State, F>(
     transition_fun: F,
-) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
+) -> Parser< Input, State, <Input as Iterator>::Item, String>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Debug + Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
     State: Clone,
-    F: Fn(State) -> State + 'a,
+    F: Fn(State) -> State + 'static,
 {
     Parser::new(move |mut input: Input, state: State| match input.next() {
         Some(x) => Ok((x, transition_fun(state), input)),
@@ -168,11 +202,11 @@ where
 }
 
 //we need to deprecate this
-pub fn match_character<'a, Input, State>(
+pub fn match_character< Input, State>(
     character: <Input as Iterator>::Item,
-) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
+) -> Parser< Input, State, <Input as Iterator>::Item, String>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Debug + Clone + 'static + Iterator,
     <Input as Iterator>::Item: Debug + Eq,
     State: Clone,
 {
@@ -183,10 +217,53 @@ where
     })
 }
 
+
+
+
+
+
+
+impl<Input, O, Error, State,P> Default for ForwardRef< Input, State, O, Error,P> where
+    Input: Clone + 'static + Iterator,
+<Input as Iterator>::Item: Eq,
+O: Clone +'static,
+Error: Clone + 'static,
+State: Clone + 'static,
+P : Parse< Input,  State,O, Error> + Fn(Input, State)->Result<(O, State, Input), Error>+'static
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parser::{match_character, match_literal};
+
 
     use super::ForwardRef;
     fn id<T>(x: T) -> T {
@@ -209,20 +286,21 @@ mod tests {
 
     #[test]
     fn forward_succeeds() {
-        use std::str::Chars;
         let mut a = ForwardRef::new();
         let b = a.clone().triple(match_character('1'), a.clone());
         a.set_parser(&|i, s| match_character('3').parse(i, s));
         let result = b.parse("313".chars(), ());
 
         match result {
-            Ok((output, _, rest)) => {
+            Ok((output, _, _)) => {
                 assert_eq!(output, ('3', '1', '3'));
             }
             _ => panic!("failed: {:?}", result),
         }
     }
 
+
+    
     #[test]
     fn forward_succeeds_2() {
         fn increment(x: i32) -> i32 {
@@ -280,12 +358,7 @@ mod tests {
             )
             .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
             .with_error(|_, _| "error".to_string());
-        let mut top_level = expr
-            .clone()
-            .pair(match_literal(";".chars(), increment))
-            .first()
-            .with_error(|_, _| "error".to_string());
-
+        
         let expr2:Parser<Chars,i32,i32,String>  = term
             .clone()
             .pair(
@@ -296,11 +369,17 @@ mod tests {
             .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
             .with_error(|_, _| "error".to_string());
 
-        expr.set_parser(move |i,s| expr2.clone().parse(i, s));
+        expr.set_parser(expr2);
 
-        let result = expr.parse("1+2*3".chars(), 0);
+        let  top_level = expr
+            .clone()
+            .pair(match_literal(";".chars(), increment))
+            .first()
+            .with_error(|_, _| "error".to_string());
+
+        let result = top_level.parse("1+2*3;".chars(), 0);
         match result {
-            Ok((output, _, rest)) => {
+            Ok((output, _, _)) => {
                 assert_eq!(output, 7);
             }
             _ => panic!("failed: {:?}", result),

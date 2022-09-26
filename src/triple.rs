@@ -5,32 +5,32 @@ use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+pub struct Triple< Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: 'a + Iterator,
+    Input: 'static + Iterator,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
+    parser: Rc<dyn Parse< Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'static>,
 }
 
-impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
-    Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+impl< Input, State, T1, T2, T3, Error1, Error2, Error3>
+    Triple< Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    T1: 'a,
-    T2: 'a,
-    T3: 'a,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
-    Error3: Clone + 'a,
-    State: Clone + 'a,
+    T1: 'static,
+    T2: 'static,
+    T3: 'static,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
+    Error3: Clone + 'static,
+    State: Clone + 'static,
 {
     pub fn new<P1, P2, P3>(parser1: P1, parser2: P2, parser3: P3) -> Self
     where
-        P1: Parse<'a, Input, State, T1, Error1> + 'a,
-        P2: Parse<'a, Input, State, T2, Error2> + 'a,
-        P3: Parse<'a, Input, State, T3, Error3> + 'a,
+        P1: Parse< Input, State, T1, Error1> + 'static,
+        P2: Parse< Input, State, T2, Error2> + 'static,
+        P3: Parse< Input, State, T3, Error3> + 'static,
     {
         Self {
             parser: Rc::new(move |input, state| {
@@ -51,77 +51,70 @@ where
         }
     }
 
-    pub fn first(self) -> Parser<'a, Input, State, T1, Either3<Error1, Error2, Error3>> {
+    pub fn first(self) -> Parser< Input, State, T1, Either3<Error1, Error2, Error3>> {
         self.transform(move |(first, _, _)| first)
     }
 
-    pub fn second(self) -> Parser<'a, Input, State, T2, Either3<Error1, Error2, Error3>> {
+    pub fn second(self) -> Parser< Input, State, T2, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, second, _)| second)
     }
-    pub fn third(self) -> Parser<'a, Input, State, T3, Either3<Error1, Error2, Error3>> {
+    pub fn third(self) -> Parser< Input, State, T3, Either3<Error1, Error2, Error3>> {
         self.transform(move |(_, _, third)| third)
     }
 }
 
-impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
-    Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
-    for Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+impl< Input, State, T1, T2, T3, Error1, Error2, Error3>
+    Parse< Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
+    for Triple< Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
-    Error3: Clone + 'a,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
+    Error3: Clone + 'static,
     State: Clone,
+    T1: 'static,
+    T2: 'static,
+    T3: 'static,
+
 {
     fn parse(
         &self,
         input: Input,
         state: State,
-    ) -> ParseResult<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
+    ) -> ParseResult< Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
         self.parser.parse(input, state)
     }
 }
 
+impl< Input, State, T1, T2, T3, Error1, Error2, Error3>
 
-
-impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3,A,B,C>
-    Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
-    for (A,B,C)//Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
+    FnOnce<(Input,State )>     for Triple< Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
 <Input as Iterator>::Item: Eq,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
-    Error3: Clone + 'a,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
+    Error3: Clone + 'static,
     State: Clone,
-T1 : 'a,
-T2 : 'a,
-T3 : 'a,
-    A:Parse<'a, Input, State, T1, Error1>,
-    B:Parse<'a, Input, State, T2, Error2>,
-    C:Parse<'a, Input, State, T3, Error3>,
+    T1: 'static,
+    T2: 'static,
+    T3: 'static,
+
+        
 {
-    fn parse(
-        &self,
-        input: Input,
-        state: State,
-    ) -> ParseResult<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> {
-        let (result1, state, input2) = match self.0.parse(input, state) {
-            Ok((result1, state, input2)) => (result1, state, input2),
-            Err(error) => return Err(Either3::Left(error)),
-        };
-        let (result2, state, input3) = match self.1.parse(input2, state) {
-            Ok((result2, state, input3)) => (result2, state, input3),
-            Err(error) => return Err(Either3::Middle(error)),
-        };
-        let (result3, state, rest) = match self.2.parse(input3, state) {
-            Ok((result3, state, rest)) => (result3, state, rest),
-            Err(error) => return Err(Either3::Right(error)),
-        };
-        Ok(((result1, result2, result3), state, rest))     
+    type Output = ParseResult< Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>;
+    extern "rust-call" fn call_once(self, b: (Input,State )) -> Self::Output {
+        self.parse(b.0,b.1)
     }
 }
+
+
+
+
+
+
+
 
 
 #[cfg(test)]

@@ -3,20 +3,20 @@ use std::rc::Rc;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct RepeatedParser<'a, Input, State, T1, Error>
+pub struct RepeatedParser< Input, State, T1, Error>
 where
-    Input: Iterator + 'a,
+    Input: Iterator + 'static,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, State, Vec<T1>, Error> + 'a>,
+    parser: Rc<dyn Parse< Input, State, Vec<T1>, Error> + 'static>,
 }
 
-impl<'a, Input, State, T1, Error> RepeatedParser<'a, Input, State, T1, Error>
+impl< Input, State, T1, Error> RepeatedParser< Input, State, T1, Error>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    T1: 'a,
-    Error: Clone + 'a,
+    T1: 'static,
+    Error: Clone + 'static,
     State: Clone,
 {
 
@@ -24,7 +24,7 @@ where
 
     pub fn zero_or_more<Parser>(parser: Parser) -> Self
     where
-        Parser: Parse<'a, Input, State, T1, Error> + 'a,
+        Parser: Parse< Input, State, T1, Error> + 'static,
     {
         Self {
             parser: Rc::new(move |mut input: Input, mut state: State| {
@@ -51,7 +51,7 @@ where
 
     pub fn one_or_more<Parser>(parser: Parser) -> Self
     where
-        Parser: Parse<'a, Input, State, T1, Error> + 'a,
+        Parser: Parse< Input, State, T1, Error> + 'static,
     {
         Self {
             parser: Rc::new(move |input: Input, state: State| {
@@ -80,7 +80,7 @@ where
     
 
 
-     // pub fn get(self,n : usize) -> Parser<'a, Input, T1> {
+     // pub fn get(self,n : usize) -> Parser< Input, T1> {
      //     self.transform(move |vec| match vec.get(n) {
      //         Some(n) => {todo!()},
      //         None => {todo!()},
@@ -88,15 +88,31 @@ where
      // }
 }
 
-impl<'a, Input, State, T1, Error> Parse<'a, Input, State, Vec<T1>, Error>
-    for RepeatedParser<'a, Input, State, T1, Error>
+impl< Input, State, T1, Error> Parse< Input, State, Vec<T1>, Error>
+    for RepeatedParser< Input, State, T1, Error>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error: Clone + 'a,
+    Error: Clone + 'static,
     State: Clone,
+    T1: 'static
 {
-    fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Vec<T1>, Error> {
+    fn parse(&self, input: Input, state: State) -> ParseResult< Input, State, Vec<T1>, Error> {
         self.parser.parse(input, state)
+    }
+}
+
+impl< Input, State, T1, Error>  FnOnce<(Input,State )> for RepeatedParser< Input, State, T1, Error>
+where
+    Input: Clone + 'static + Iterator,
+<Input as Iterator>::Item: Eq,
+    Error: Clone + 'static,
+    State: Clone,
+    T1: 'static
+    
+{
+    type Output = ParseResult< Input, State, Vec<T1>, Error>;
+    extern "rust-call" fn call_once(self, b: (Input,State )) -> Self::Output {
+        self.parse(b.0,b.1)
     }
 }

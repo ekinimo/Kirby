@@ -1,5 +1,8 @@
 #![feature(once_cell)]
 #![feature(unboxed_closures)]
+#![feature(fn_traits)]
+#![feature(test)]
+
 use either::Either3;
 
 use crate::either::{Either, EitherParser};
@@ -14,74 +17,23 @@ pub mod parser;
 pub mod repeated;
 pub mod triple;
 
-pub type ParseResult<'a, Input, State, Output, Error> = Result<(Output, State, Input), Error>;
+pub type ParseResult< Input, State, Output, Error> = Result<(Output, State, Input), Error>;
 
-pub trait SizedParse<'a, Input, State, Output, Error>:
-    Sized + Parse<'a, Input, State, Output, Error>
+pub trait Parse< Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
+    Output: 'static,
+    Error: Clone + 'static,
     State: Clone,
 {
-}
+    fn parse(&self, input: Input, state: State) -> ParseResult< Input, State, Output, Error>;
 
-impl<'a, Input, State, Output, Error, T> SizedParse<'a, Input, State, Output, Error> for T
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    State: Clone,
-    T: Sized + Parse<'a, Input, State, Output, Error>,
-{
-}
-
-impl<'a, Input, State, Output, Error, Output2, Error2>
-    std::ops::BitOr<&'a dyn Parse<'a, Input, State, Output2, Error2>>
-    for &'a dyn Parse<'a, Input, State, Output, Error>
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    Output2: 'a,
-    Error2: Clone + 'a,
-
-    State: Clone,
-    Self: Sized,
-{
-    type Output = Parser<'a, Input, State, Either<Output, Output2>, (Error, Error2)>;
-
-    fn bitor(self, rhs: &'a dyn Parse<'a, Input, State, Output2, Error2>) -> Self::Output {
-        Parser::new(move 
-            |input: Input, state: State| match self.parse(input.clone(), state.clone()) {
-                Err(first_error_message) => match rhs.parse(input, state) {
-                    Err(second_error_message) => Err((first_error_message, second_error_message)),
-                    Ok((output, state, input)) => Ok((Either::Right(output), state, input)),
-                },
-                Ok((output, state, input)) => Ok((Either::Left(output), state, input)),
-            },
-        )
-    }
-}
-
-pub trait Parse<'a, Input, State, Output, Error>
-where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
-    State: Clone,
-{
-    fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Output, Error>;
-
-    fn with_error<F, Error2>(self, error_mapper: F) -> Parser<'a, Input, State, Output, Error2>
+    fn with_error<F, Error2>(self, error_mapper: F) -> Parser< Input, State, Output, Error2>
     where
-        Self: Sized + 'a,
-        F: Fn(Error, Input) -> Error2 + 'a,
-        Error2: Clone,
+        Self: Sized + 'static,
+        F: Fn(Error, Input) -> Error2 + 'static,
+        Error2: Clone +'static,
     {
         Parser::new(move |input: Input, state: State| {
             self.parse(input.clone(), state)
@@ -92,11 +44,11 @@ where
     fn with_error_using_state<F, Error2>(
         self,
         error_mapper: F,
-    ) -> Parser<'a, Input, State, Output, Error2>
+    ) -> Parser< Input, State, Output, Error2>
     where
-        Self: Sized + 'a,
-        F: Fn(Error, State, Input) -> Error2 + 'a,
-        Error2: Clone,
+        Self: Sized + 'static,
+        F: Fn(Error, State, Input) -> Error2 + 'static,
+        Error2: Clone +'static,
     {
         Parser::new(move |input: Input, state: State| {
             self.parse(input.clone(), state.clone())
@@ -107,11 +59,11 @@ where
     fn transform<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output) -> Output2 + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output) -> Output2 + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state)
@@ -122,10 +74,10 @@ where
     fn with_state_transition<TransformFunction>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        TransformFunction: Fn(State) -> State + 'a,
+        Self: Sized + 'static,
+        TransformFunction: Fn(State) -> State + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state)
@@ -136,10 +88,10 @@ where
     fn peek_and_change_state<TransformFunction>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        TransformFunction: Fn(State, &Input) -> State + 'a,
+        Self: Sized + 'static,
+        TransformFunction: Fn(State, &Input) -> State + 'static,
     {
         Parser::new(move |input: Input, state| {
             self.parse(input, state)
@@ -150,10 +102,10 @@ where
     fn peek_and_change_state_using_result<TransformFunction>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        TransformFunction: Fn(State, Output, &Input) -> State + 'a,
+        Self: Sized + 'static,
+        TransformFunction: Fn(State, Output, &Input) -> State + 'static,
         Output: Clone,
     {
         Parser::new(move |input: Input, state| {
@@ -167,10 +119,10 @@ where
     fn peek_and_change_state_using_result_ref<TransformFunction>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        TransformFunction: Fn(State, &Output, &Input) -> State + 'a,
+        Self: Sized + 'static,
+        TransformFunction: Fn(State, &Output, &Input) -> State + 'static,
     {
         Parser::new(move |input: Input, state| {
             self.parse(input, state).map(|(result, state, rest)| {
@@ -183,13 +135,13 @@ where
         self,
         transform_function: TransformFunction,
         error_function: ErrorFunction,
-    ) -> Parser<'a, Input, State, Output2, Error2>
+    ) -> Parser< Input, State, Output2, Error2>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output) -> Output2 + 'a,
-        ErrorFunction: Fn(Error) -> Error2 + 'a,
-        Error2: Clone,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output) -> Output2 + 'static,
+        ErrorFunction: Fn(Error) -> Error2 + 'static,
+        Error2: Clone +'static+'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map_or_else(
@@ -203,12 +155,12 @@ where
         self,
         transform_function: TransformFunction,
         transition_function: TransitionFunction,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output) -> Output2 + 'a,
-        TransitionFunction: Fn(State) -> State + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output) -> Output2 + 'static,
+        TransitionFunction: Fn(State) -> State + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map(|(result, state, rest)| {
@@ -220,11 +172,11 @@ where
     fn transform_with_state<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output, State) -> Output2 + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output, State) -> Output2 + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map(|(result, state, rest)| {
@@ -237,13 +189,13 @@ where
         self,
         transform_function: TransformFunction,
         error_function: ErrorFunction,
-    ) -> Parser<'a, Input, State, Output2, Error2>
+    ) -> Parser< Input, State, Output2, Error2>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output, State) -> Output2 + 'a,
-        ErrorFunction: Fn(Error) -> Error2 + 'a,
-        Error2: Clone,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output, State) -> Output2 + 'static,
+        ErrorFunction: Fn(Error) -> Error2 + 'static,
+        Error2: Clone +'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map_or_else(
@@ -258,11 +210,11 @@ where
     fn peek_and_transform<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output, &Input) -> Output2 + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output, &Input) -> Output2 + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state)
@@ -273,11 +225,11 @@ where
     fn peek_and_transform_with_state<TransformFunction, Output2>(
         self,
         transform_function: TransformFunction,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        TransformFunction: Fn(Output, &State, &Input) -> Output2 + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        TransformFunction: Fn(Output, &State, &Input) -> Output2 + 'static,
     {
         Parser::new(move |input, state| {
             self.parse(input, state).map(|(result, state, rest)| {
@@ -290,11 +242,11 @@ where
         self,
         predicate: PredicateFunction,
         error_message: Error,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a + Clone,
-        PredicateFunction: Fn(&Output) -> bool + 'a,
+        Self: Sized + 'static,
+        Output: 'static + Clone,
+        PredicateFunction: Fn(&Output) -> bool + 'static,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
@@ -310,13 +262,13 @@ where
         self,
         predicate: PredicateFunction,
         error_func: ErrorFunc,
-    ) -> Parser<'a, Input, State, Output, OutputError>
+    ) -> Parser< Input, State, Output, OutputError>
     where
-        Self: Sized + 'a,
-        Output: 'a + Clone,
-        OutputError: 'a + Clone + From<Error>,
-        PredicateFunction: Fn(&Output) -> bool + 'a,
-        ErrorFunc: Fn(Output, State, Input) -> OutputError + 'a,
+        Self: Sized + 'static,
+        Output: 'static + Clone,
+        OutputError: 'static + Clone + From<Error>,
+        PredicateFunction: Fn(&Output) -> bool + 'static,
+        ErrorFunc: Fn(Output, State, Input) -> OutputError + 'static,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
@@ -331,11 +283,11 @@ where
         self,
         predicate: PredicateFunction,
         error_message: Error,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a + Clone,
-        PredicateFunction: Fn(&Output, &Input) -> bool + 'a,
+        Self: Sized + 'static,
+        Output: 'static + Clone,
+        PredicateFunction: Fn(&Output, &Input) -> bool + 'static,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
@@ -351,11 +303,11 @@ where
         self,
         predicate: PredicateFunction,
         error_message: Error,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a + Clone,
-        PredicateFunction: Fn(&Output, &Input, &State) -> bool + 'a,
+        Self: Sized + 'static,
+        Output: 'static + Clone,
+        PredicateFunction: Fn(&Output, &Input, &State) -> bool + 'static,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
@@ -371,11 +323,11 @@ where
         self,
         predicate: PredicateFunction,
         error_message: Error,
-    ) -> Parser<'a, Input, State, Output, Error>
+    ) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a + Clone,
-        PredicateFunction: Fn(&Output, &State) -> bool + 'a,
+        Self: Sized + 'static,
+        Output: 'static + Clone,
+        PredicateFunction: Fn(&Output, &State) -> bool + 'static,
     {
         Parser::new(move |input: Input, state: State| {
             let (value, state, next_input) = self.parse(input, state)?;
@@ -390,12 +342,12 @@ where
     fn new_parser_from_parse_result<F, NextParser, Output2>(
         self,
         f: F,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        NextParser: Parse<'a, Input, State, Output2, Error> + 'a + Clone,
-        F: Fn(Output) -> NextParser + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        NextParser: Parse< Input, State, Output2, Error> + 'static + Clone,
+        F: Fn(Output) -> NextParser + 'static,
     {
         Parser::new(move |input, state| {
             let (result, state, next_input) = self.parse(input, state)?;
@@ -406,12 +358,12 @@ where
     fn new_parser_from_parse_result_and_rest<F, NextParser, Output2>(
         self,
         f: F,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        NextParser: Parse<'a, Input, State, Output2, Error> + 'a + Clone,
-        F: Fn(Output, &Input) -> NextParser + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        NextParser: Parse< Input, State, Output2, Error> + 'static + Clone,
+        F: Fn(Output, &Input) -> NextParser + 'static,
     {
         Parser::new(move |input, state| {
             let (result, state, next_input) = self.parse(input, state)?;
@@ -422,12 +374,12 @@ where
     fn new_parser_from_parse_result_and_state<F, NextParser, Output2>(
         self,
         f: F,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        NextParser: Parse<'a, Input, State, Output2, Error> + 'a + Clone,
-        F: Fn(Output, &State) -> NextParser + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        NextParser: Parse< Input, State, Output2, Error> + 'static + Clone,
+        F: Fn(Output, &State) -> NextParser + 'static,
     {
         Parser::new(move |input, state| {
             let (result, state, next_input) = self.parse(input, state)?;
@@ -439,12 +391,12 @@ where
     fn new_parser_from_parse_result_state_and_rest<F, NextParser, Output2>(
         self,
         f: F,
-    ) -> Parser<'a, Input, State, Output2, Error>
+    ) -> Parser< Input, State, Output2, Error>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        NextParser: Parse<'a, Input, State, Output2, Error> + 'a + Clone,
-        F: Fn(Output, &State, &Input) -> NextParser + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        NextParser: Parse< Input, State, Output2, Error> + 'static + Clone,
+        F: Fn(Output, &State, &Input) -> NextParser + 'static,
     {
         Parser::new(move |input, state| {
             let (result, state, next_input) = self.parse(input, state)?;
@@ -456,13 +408,13 @@ where
     fn or_else<Parser2, Error2>(
         self,
         parser2: Parser2,
-    ) -> Parser<'a, Input, State, Output, (Error, Error2)>
+    ) -> Parser< Input, State, Output, (Error, Error2)>
     where
-        Self: Sized + 'a,
-        Output: 'a,
-        Parser2: Parse<'a, Input, State, Output, Error2> + 'a,
-        Error2: Clone,
-        State: 'a,
+        Self: Sized + 'static,
+        Output: 'static,
+        Parser2: Parse< Input, State, Output, Error2> + 'static,
+        Error2: Clone+'static,
+        State: 'static,
     {
         self.either(parser2).fold(|left| left, |right| right)
     }
@@ -470,13 +422,13 @@ where
     fn pair<Parser2, Output2, Error2>(
         self,
         parser2: Parser2,
-    ) -> Pair<'a, Input, State, Output, Output2, Error, Error2>
+    ) -> Pair< Input, State, Output, Output2, Error, Error2>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        Parser2: Parse<'a, Input, State, Output2, Error2> + 'a,
-        Error2: Clone + 'a,
-        State: 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        Parser2: Parse< Input, State, Output2, Error2> + 'static,
+        Error2: Clone + 'static,
+        State: 'static,
     {
         Pair::new(self, parser2)
     }
@@ -496,19 +448,19 @@ where
         transform_function: TransformFunction,
         error_mapper1: ErrorMapper1,
         error_mapper2: ErrorMapper2,
-    ) -> Parser<'a, Input, State, Output3, Error3>
+    ) -> Parser< Input, State, Output3, Error3>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        Parser2: Parse<'a, Input, State, Output2, Error2> + 'a,
-        Error2: Clone + 'a,
-        Error3: Clone + 'a,
-        Output3: Clone + 'a,
-        TransformFunction: Fn(Output, Output2) -> Output3 + 'a,
-        ErrorMapper1: Fn(Error, State, Input) -> Error3 + 'a,
-        ErrorMapper2: Fn(Error2, State, Input) -> Error3 + 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        Parser2: Parse< Input, State, Output2, Error2> + 'static,
+        Error2: Clone + 'static,
+        Error3: Clone + 'static,
+        Output3: Clone + 'static,
+        TransformFunction: Fn(Output, Output2) -> Output3 + 'static,
+        ErrorMapper1: Fn(Error, State, Input) -> Error3 + 'static,
+        ErrorMapper2: Fn(Error2, State, Input) -> Error3 + 'static,
 
-        State: 'a,
+        State: 'static,
     {
         self.pair(parser2)
             .transform(move |(x, y)| transform_function(x, y))
@@ -522,16 +474,16 @@ where
         self,
         parser2: Parser2,
         parser3: Parser3,
-    ) -> Triple<'a, Input, State, Output, Output2, Output3, Error, Error2, Error3>
+    ) -> Triple< Input, State, Output, Output2, Output3, Error, Error2, Error3>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        Parser2: Parse<'a, Input, State, Output2, Error2> + 'a,
-        Output3: 'a,
-        Parser3: Parse<'a, Input, State, Output3, Error3> + 'a,
-        Error2: Clone + 'a,
-        Error3: Clone + 'a,
-        State: 'a,
+        Self: Sized + 'static,
+        Output2: 'static,
+        Parser2: Parse< Input, State, Output2, Error2> + 'static,
+        Output3: 'static,
+        Parser3: Parse< Input, State, Output3, Error3> + 'static,
+        Error2: Clone + 'static,
+        Error3: Clone + 'static,
+        State: 'static,
     {
         Triple::new(self, parser2, parser3)
     }
@@ -541,7 +493,7 @@ where
         middle_parser: ParserMiddle,
         right_parser: ParserRight,
     ) -> EitherParser<
-        'a,
+        
         Input,
         State,
         (RightOutput, MiddleOutput, Output),
@@ -550,14 +502,14 @@ where
         RightError,
     >
     where
-        Self: Sized + 'a + Clone,
-        RightOutput: 'a,
-        ParserRight: Parse<'a, Input, State, RightOutput, RightError> + 'a + Clone,
-        MiddleOutput: 'a,
-        ParserMiddle: Parse<'a, Input, State, MiddleOutput, MiddleError> + 'a,
-        RightError: Clone + 'a,
-        MiddleError: Clone + 'a,
-        State: 'a,
+        Self: Sized + 'static + Clone,
+        RightOutput: 'static,
+        ParserRight: Parse< Input, State, RightOutput, RightError> + 'static + Clone,
+        MiddleOutput: 'static,
+        ParserMiddle: Parse< Input, State, MiddleOutput, MiddleError> + 'static,
+        RightError: Clone + 'static,
+        MiddleError: Clone + 'static,
+        State: 'static,
     {
         EitherParser::new(
             Triple::new(right_parser.clone(), middle_parser, self),
@@ -570,7 +522,7 @@ where
         left_parser: ParserLeft,
         middle_parser: ParserMiddle,
     ) -> Pair<
-        'a,
+        
         Input,
         State,
         LeftOutput,
@@ -579,14 +531,14 @@ where
         Either<MiddleError, LeftError>,
     >
     where
-        Self: Sized + 'a,
-        LeftOutput: 'a,
-        ParserLeft: Parse<'a, Input, State, LeftOutput, LeftError> + 'a + Clone,
-        MiddleOutput: 'a,
-        ParserMiddle: Parse<'a, Input, State, MiddleOutput, MiddleError> + 'a,
-        LeftError: Clone + 'a,
-        MiddleError: Clone + 'a,
-        State: 'a,
+        Self: Sized + 'static,
+        LeftOutput: 'static,
+        ParserLeft: Parse< Input, State, LeftOutput, LeftError> + 'static + Clone,
+        MiddleOutput: 'static,
+        ParserMiddle: Parse< Input, State, MiddleOutput, MiddleError> + 'static,
+        LeftError: Clone + 'static,
+        MiddleError: Clone + 'static,
+        State: 'static,
     {
         //EitherParser::new(Triple::new(self, middle_parser, left_parser.clone()), left_parser)
         left_parser
@@ -597,29 +549,29 @@ where
     fn either<Parser2, Output2, Error2>(
         self,
         parser2: Parser2,
-    ) -> EitherParser<'a, Input, State, Output, Output2, Error, Error2>
+    ) -> EitherParser< Input, State, Output, Output2, Error, Error2>
     where
-        Self: Sized + 'a,
-        Output2: 'a,
-        Parser2: Parse<'a, Input, State, Output2, Error2> + 'a,
-        Error2: Clone,
+        Self: Sized + 'static,
+        Output2: 'static,
+        Parser2: Parse< Input, State, Output2, Error2> + 'static,
+        Error2: Clone+'static,
     {
         EitherParser::new(self, parser2)
     }
 
-    fn zero_or_more(self) -> RepeatedParser<'a, Input, State, Output, Error>
+    fn zero_or_more(self) -> RepeatedParser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a,
+        Self: Sized + 'static,
+        Output: 'static,
     {
         //todo!();
         RepeatedParser::zero_or_more(self)
     }
 
-    fn one_or_more(self) -> RepeatedParser<'a, Input, State, Output, Error>
+    fn one_or_more(self) -> RepeatedParser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a,
+        Self: Sized + 'static,
+        Output: 'static,
     {
         //todo!();
         RepeatedParser::one_or_more(self)
@@ -628,13 +580,13 @@ where
     fn separated_by<P, Output2, Error2>(
         self,
         separator: P,
-    ) -> Pair<'a, Input, State, Output, Vec<(Output2, Output)>, Error, Either<Error2, Error>>
+    ) -> Pair< Input, State, Output, Vec<(Output2, Output)>, Error, Either<Error2, Error>>
     where
-        Self: Sized + Clone + 'a,
-        P: Parse<'a, Input, State, Output2, Error2> + 'a,
-        Output2: 'a,
-        Error2: Clone,
-        State: 'a,
+        Self: Sized + Clone + 'static,
+        P: Parse< Input, State, Output2, Error2> + 'static,
+        Output2: 'static,
+        Error2: Clone + 'static,
+        State: 'static,
     {
         Pair::new(
             self.clone(),
@@ -642,13 +594,13 @@ where
         )
     }
 
-    fn skip<P, T, E>(self, skip_parser: P) -> Parser<'a, Input, State, Output, Error>
+    fn skip<P, T, E>(self, skip_parser: P) -> Parser< Input, State, Output, Error>
     where
-        Self: Sized + 'a,
-        Output: 'a,
-        P: Parse<'a, Input, State, T, E> + 'a,
-        T: Clone + 'a,
-        E: Clone + 'a,
+        Self: Sized + 'static,
+        Output: 'static,
+        P: Parse< Input, State, T, E> + 'static,
+        T: Clone + 'static,
+        E: Clone + 'static,
     {
         Parser::new(move |mut input: Input, mut state: State| {
             while let Ok((_, s, new_input)) = skip_parser.parse(input.clone(), state.clone()) {
@@ -667,26 +619,114 @@ where
     }
 }
 
-impl<'a, Function, Input, State, Output, Error> Parse<'a, Input, State, Output, Error> for Function
+impl< Function, Input, State, Output, Error> Parse< Input, State, Output, Error> for Function
 where
-    Function: Fn(Input, State) -> ParseResult<'a, Input, State, Output, Error> + 'a,
-    Input: Clone + 'a + Iterator,
+    Function: Fn(Input, State) -> ParseResult< Input, State, Output, Error> + 'static,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Output: 'a,
-    Error: Clone + 'a,
+    Output: 'static,
+    Error: Clone + 'static,
     State: Clone,
 {
-    fn parse(&self, input: Input, state: State) -> ParseResult<'a, Input, State, Output, Error> {
+    fn parse(&self, input: Input, state: State) -> ParseResult< Input, State, Output, Error> {
         self(input, state)
     }
 }
 
+
+
+extern crate test;
+
 #[cfg(test)]
 mod tests {
     use crate::either::Either;
-    use crate::parser::match_character;
+    use crate::parser::*;
     use crate::Parse;
+    use test::Bencher;
 
+    #[bench]
+    fn bench_inline_parse(b: &mut Bencher) {
+        b.iter(|| {
+    fn increment(x: i32) -> i32 {
+            /*println!("hello {x}");*/
+            x + 1
+        }
+
+        use std::str::Chars;
+
+        let parse_digit = vec![
+            Parser::new(match_literal("1".chars(), increment)),
+            Parser::new(match_literal("2".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("4".chars(), increment)),
+            Parser::new(match_literal("5".chars(), increment)),
+            Parser::new(match_literal("6".chars(), increment)),
+            Parser::new(match_literal("7".chars(), increment)),
+            Parser::new(match_literal("8".chars(), increment)),
+            Parser::new(match_literal("9".chars(), increment)),
+            Parser::new(match_literal("0".chars(), increment)),
+        ]
+        .iter()
+        .fold(
+            Parser::new(match_literal("0".chars(), increment)),
+            |x: Parser<Chars, i32, Chars, String>, y: &Parser<Chars, i32, Chars, String>| {
+                x.or_else(y.clone()).with_error(|_, _| "error".to_string())
+            },
+        );
+        let parse_digits = parse_digit.clone().one_or_more();
+
+        let parse_natural_numbers = parse_digits.clone().transform(|s| {
+            let mut digits = String::from("");
+            for digit in s {
+                digits.push_str(digit.as_str());
+            }
+            //    println!("digits = {:?}", digits);
+            digits.parse::<i32>().unwrap()
+        });
+
+        let mut expr = ForwardRef::new();
+
+        let factor = match_literal("(".chars(), increment)
+            .triple(expr.clone(), match_literal(")".chars(), increment))
+            .second()
+            .or_else(parse_natural_numbers.clone())
+            .with_error(|(_, _), _| "error".to_string());
+        let term = factor
+            .clone()
+            .pair(
+                match_literal("*".chars(), increment)
+                    .pair(factor.clone())
+                    .second()
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
+            .with_error(|_, _| "error".to_string());
+        
+        let expr2:Parser<Chars,i32,i32,String>  = term
+            .clone()
+            .pair(
+                match_literal("+".chars(), increment)
+                    .pair(term.clone())
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
+            .with_error(|_, _| "error".to_string());
+
+        expr.set_parser(expr2);
+
+        let  top_level = expr
+            .clone()
+            .pair(match_literal(";".chars(), increment))
+            .first()
+            .with_error(|_, _| "error".to_string());
+
+        let result = top_level.parse("1+2*3+4-1/5;".chars(), 0);
+    
+        });
+    }
+
+    
     #[test]
     fn separated_by() {
         let under_test = match_character('1').separated_by(match_character('-'));

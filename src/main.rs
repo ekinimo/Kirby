@@ -25,7 +25,7 @@ fn increment(x: i32) -> i32 {
     x + 1
 }
 
-pub fn top_level(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
+pub fn top_level(input: Chars<'static>, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     expression
         .pair(match_literal(";".chars(), increment))
         .first()
@@ -33,7 +33,7 @@ pub fn top_level(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, Stri
         .parse(input, _state)
 }
 
-pub fn expression(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
+pub fn expression(input: Chars<'static>, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     Pair::new(
         term,
         RepeatedParser::zero_or_more(match_literal("+".chars(), increment).pair(term)),
@@ -43,7 +43,7 @@ pub fn expression(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, Str
     .parse(input.clone(), _state)
 }
 
-pub fn term(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
+pub fn term(input: Chars<'static>, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     Pair::new(
         factor,
         RepeatedParser::zero_or_more(match_literal("*".chars(), increment).pair(factor).second()),
@@ -53,7 +53,7 @@ pub fn term(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     .parse(input.clone(), _state)
 }
 
-pub fn factor(input: Chars, _state: i32) -> ParseResult<Chars, i32, i32, String> {
+pub fn factor(input: Chars<'static>, _state: i32) -> ParseResult<Chars, i32, i32, String> {
     //println!("factor = {:?}", input);
     let parse_digit = vec![
         parser::Parser::new(match_literal("1".chars(), increment)),

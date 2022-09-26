@@ -6,28 +6,28 @@ use crate::parser::Parser;
 use crate::{Parse, ParseResult};
 
 #[derive(Clone)]
-pub struct Pair<'a, Input, State, T1, T2, Error1, Error2>
+pub struct Pair< Input, State, T1, T2, Error1, Error2>
 where
-    Input: 'a + Iterator,
+    Input: 'static + Iterator,
     <Input as Iterator>::Item: Eq,
 {
-    parser: Rc<dyn Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>> + 'a>,
+    parser: Rc<dyn Parse< Input, State, (T1, T2), Either<Error1, Error2>> + 'static>,
 }
 
-impl<'a, Input, State, T1, T2, Error1, Error2> Pair<'a, Input, State, T1, T2, Error1, Error2>
+impl< Input, State, T1, T2, Error1, Error2> Pair< Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    T1: 'a,
-    T2: 'a,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
-    State: Clone + 'a,
+    T1: 'static,
+    T2: 'static,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
+    State: Clone + 'static,
 {
     pub fn new<P1, P2>(parser1: P1, parser2: P2) -> Self
     where
-        P1: Parse<'a, Input, State, T1, Error1> + 'a,
-        P2: Parse<'a, Input, State, T2, Error2> + 'a,
+        P1: Parse< Input, State, T1, Error1> + 'static,
+        P2: Parse< Input, State, T2, Error2> + 'static,
     {
         Self {
             parser: Rc::new(move |input, state| {
@@ -44,54 +44,74 @@ where
         }
     }
 
-    pub fn first(self) -> Parser<'a, Input, State, T1, Either<Error1, Error2>> {
+    pub fn first(self) -> Parser< Input, State, T1, Either<Error1, Error2>> {
         self.transform(move |(first, _)| first)
     }
 
-    pub fn second(self) -> Parser<'a, Input, State, T2, Either<Error1, Error2>> {
+    pub fn second(self) -> Parser< Input, State, T2, Either<Error1, Error2>> {
         self.transform(move |(_, second)| second)
     }
 }
 
-impl<'a, Input, State, T1, T2, Error1, Error2>
-    Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>>
-    for Pair<'a, Input, State, T1, T2, Error1, Error2>
+impl< Input, State, T1, T2, Error1, Error2>
+    Parse< Input, State, (T1, T2), Either<Error1, Error2>>
+    for Pair< Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
     State: Clone,
+T1 : 'static,
+T2 : 'static,
+
 {
     fn parse(
         &self,
         input: Input,
         state: State,
-    ) -> ParseResult<'a, Input, State, (T1, T2), Either<Error1, Error2>> {
+    ) -> ParseResult< Input, State, (T1, T2), Either<Error1, Error2>> {
         self.parser.parse(input, state)
     }
 }
 
 
-impl<'a, Input, State, T1, T2, Error1, Error2,A,B>
-    Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>>
+ impl< Input, State, T1:'static, T2:'static, Error1, Error2>    FnOnce<(Input,State )> for Pair< Input, State, T1, T2, Error1, Error2>
+ where
+     Input: Clone + 'static + Iterator,
+ <Input as Iterator>::Item: Eq,
+     Error1: Clone + 'static,
+     Error2: Clone + 'static,
+     State: Clone,
+
+ {
+     type Output = ParseResult< Input, State, (T1, T2), Either<Error1, Error2>>;
+     extern "rust-call" fn call_once(self, b: (Input,State )) -> ParseResult< Input, State, (T1, T2), Either<Error1, Error2>> {
+         self.parse(b.0,b.1)
+     }
+ }
+   
+
+
+impl< Input, State, T1, T2, Error1, Error2,A,B>
+    Parse< Input, State, (T1, T2), Either<Error1, Error2>>
     for (A,B)
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
 <Input as Iterator>::Item: Eq,
-    Error1: Clone + 'a,
-    Error2: Clone + 'a,
+    Error1: Clone + 'static,
+    Error2: Clone + 'static,
     State: Clone,
-    T1 : 'a,
-    T2 : 'a,
-    A:Parse<'a, Input, State, T1, Error1>,
-    B:Parse<'a, Input, State, T2, Error2>
+    T1 : 'static,
+    T2 : 'static,
+    A:Parse< Input, State, T1, Error1>,
+    B:Parse< Input, State, T2, Error2>
 {
     fn parse(
         &self,
         input: Input,
         state: State,
-    ) -> ParseResult<'a, Input, State, (T1, T2), Either<Error1, Error2>> {
+    ) -> ParseResult< Input, State, (T1, T2), Either<Error1, Error2>> {
         let (result1, state, input2) = match self.0.parse(input, state) {
             Ok((result1, state, input2)) => (result1, state, input2),
             Err(error) => return Err(Either::Left(error)),
@@ -104,13 +124,13 @@ where
     }
 }
 
-impl<'a, Input, State, T1, T2, Error1, Error2> Debug
-    for Pair<'a, Input, State, T1, T2, Error1, Error2>
+impl< Input, State, T1, T2, Error1, Error2> Debug
+    for Pair< Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
+    Input: Clone + 'static + Iterator,
     <Input as Iterator>::Item: Eq,
-    T1: 'a,
-    T2: 'a,
+    T1: 'static,
+    T2: 'static,
 {
     fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
