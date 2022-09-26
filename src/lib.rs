@@ -1,5 +1,7 @@
 #![feature(once_cell)]
 #![feature(unboxed_closures)]
+#![feature(test)]
+
 use either::Either3;
 
 use crate::either::{Either, EitherParser};
@@ -630,12 +632,100 @@ where
     }
 }
 
+extern crate test;
 #[cfg(test)]
 mod tests {
     use crate::either::Either;
-    use crate::parser::match_character;
+    use crate::parser::*;
+    
+    
+    
+    
+    use test::Bencher;
     use crate::Parse;
 
+    #[bench]
+    fn bench_forward_ref(b:&mut Bencher){
+        b.iter(|| {
+
+        fn increment(x: i32) -> i32 {
+            /*println!("hello {x}");*/
+            x + 1
+        }
+
+        use std::str::Chars;
+
+        let parse_digit = vec![
+            Parser::new(match_literal("1".chars(), increment)),
+            Parser::new(match_literal("2".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("4".chars(), increment)),
+            Parser::new(match_literal("5".chars(), increment)),
+            Parser::new(match_literal("6".chars(), increment)),
+            Parser::new(match_literal("7".chars(), increment)),
+            Parser::new(match_literal("8".chars(), increment)),
+            Parser::new(match_literal("9".chars(), increment)),
+            Parser::new(match_literal("0".chars(), increment)),
+        ]
+        .iter()
+        .fold(
+            Parser::new(match_literal("0".chars(), increment)),
+            |x: Parser<Chars, i32, Chars, String>, y: &Parser<Chars, i32, Chars, String>| {
+                x.or_else(y.clone()).with_error(|_, _| "error".to_string())
+            },
+        );
+        let parse_digits = parse_digit.clone().one_or_more();
+
+        let parse_natural_numbers = parse_digits.clone().transform(|s| {
+            let mut digits = String::from("");
+            for digit in s {
+                digits.push_str(digit.as_str());
+            }
+            //    println!("digits = {:?}", digits);
+            digits.parse::<i32>().unwrap()
+        });
+
+        let mut expr = ForwardRef::new();
+
+        let factor = match_literal("(".chars(), increment)
+            .triple(expr.clone(), match_literal(")".chars(), increment))
+            .second()
+            .or_else(parse_natural_numbers.clone())
+            .with_error(|(_, _), _| "error".to_string());
+        let term = factor
+            .clone()
+            .pair(
+                match_literal("*".chars(), increment)
+                    .pair(factor.clone())
+                    .second()
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
+            .with_error(|_, _| "error".to_string());
+        let _top_level = expr
+            .clone()
+            .pair(match_literal(";".chars(), increment))
+            .first()
+            .with_error(|_, _| "error".to_string());
+
+        let expr2:Parser<Chars,i32,i32,String>  = term
+            .clone()
+            .pair(
+                match_literal("+".chars(), increment)
+                    .pair(term.clone())
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
+            .with_error(|_, _| "error".to_string());
+
+        expr.set_parser(move |i,s| expr2.clone().parse(i, s));
+
+        let _result = expr.parse("1+2*3-5/(5+6)-5-3".chars(), 0);
+
+        });
+
+    }
     #[test]
     fn separated_by() {
         let under_test = match_character('1').separated_by(match_character('-'));
