@@ -7,8 +7,8 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
 {
     parser: Rc<dyn Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>> + 'a>,
 }
@@ -16,8 +16,8 @@ where
 impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
     Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
     T3: 'a,
@@ -67,8 +67,8 @@ impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
     Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
     for Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     Error3: Clone + 'a,
@@ -89,8 +89,8 @@ impl<'a, Input, State, T1, T2, T3, Error1, Error2, Error3,A,B,C>
     Parse<'a, Input, State, (T1, T2, T3), Either3<Error1, Error2, Error3>>
     for (A,B,C)//Triple<'a, Input, State, T1, T2, T3, Error1, Error2, Error3>
 where
-    Input: Clone + 'a + Iterator,
-<Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+<Input as IntoIterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     Error3: Clone + 'a,

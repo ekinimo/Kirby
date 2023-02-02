@@ -8,16 +8,16 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Pair<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
 {
     parser: Rc<dyn Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>> + 'a>,
 }
 
 impl<'a, Input, State, T1, T2, Error1, Error2> Pair<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
     Error1: Clone + 'a,
@@ -57,8 +57,8 @@ impl<'a, Input, State, T1, T2, Error1, Error2>
     Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>>
     for Pair<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     State: Clone,
@@ -77,8 +77,8 @@ impl<'a, Input, State, T1, T2, Error1, Error2,A,B>
     Parse<'a, Input, State, (T1, T2), Either<Error1, Error2>>
     for (A,B)
 where
-    Input: Clone + 'a + Iterator,
-<Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+<Input as IntoIterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     State: Clone,

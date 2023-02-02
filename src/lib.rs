@@ -10,7 +10,7 @@ use crate::parser::Parser;
 use crate::repeated::RepeatedParser;
 use crate::triple::Triple;
 
-pub mod either;
+pub mod either; 
 pub mod pair;
 pub mod parser;
 pub mod repeated;
@@ -20,8 +20,8 @@ pub type ParseResult<'a, Input, State, Output, Error> = Result<(Output, State, I
 
 pub trait Parse<'a, Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Output: 'a,
     Error: Clone + 'a,
     State: Clone,
@@ -621,8 +621,8 @@ where
 impl<'a, Function, Input, State, Output, Error> Parse<'a, Input, State, Output, Error> for Function
 where
     Function: Fn(Input, State) -> ParseResult<'a, Input, State, Output, Error> + 'a,
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Output: 'a,
     Error: Clone + 'a,
     State: Clone,

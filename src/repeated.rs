@@ -5,16 +5,16 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct RepeatedParser<'a, Input, State, T1, Error>
 where
-    Input: Iterator + 'a,
-    <Input as Iterator>::Item: Eq,
+    Input: IntoIterator + 'a,
+    <Input as IntoIterator>::Item: Eq,
 {
     parser: Rc<dyn Parse<'a, Input, State, Vec<T1>, Error> + 'a>,
 }
 
 impl<'a, Input, State, T1, Error> RepeatedParser<'a, Input, State, T1, Error>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: 'a,
     Error: Clone + 'a,
     State: Clone,
@@ -91,8 +91,8 @@ where
 impl<'a, Input, State, T1, Error> Parse<'a, Input, State, Vec<T1>, Error>
     for RepeatedParser<'a, Input, State, T1, Error>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error: Clone + 'a,
     State: Clone,
 {

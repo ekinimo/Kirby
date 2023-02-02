@@ -11,16 +11,16 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct Parser<'a, Input, State, Output, Error>
 where
-    Input: 'a + Iterator,
-    <Input as Iterator>::Item: Eq + 'a,
+    Input: 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq + 'a,
 {
     parser: Rc<dyn Parse<'a, Input, State, Output, Error> + 'a>,
 }
 
 impl<'a, Input, State, Output, Error> Parser<'a, Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error: Clone + 'a,
     State: Clone,
 {
@@ -37,8 +37,8 @@ where
 impl<'a, Input, State, Output, Error> Parse<'a, Input, State, Output, Error>
     for Parser<'a, Input, State, Output, Error>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error: Clone + 'a,
     State: Clone + 'a,
 {
@@ -50,8 +50,8 @@ where
 #[derive(Clone)]
 pub struct ForwardRef<Input, Output, State, Error,P>
 where
-    Input:Clone  + Iterator+ 'static,
-<Input as Iterator>::Item: Eq,
+    Input:Clone  + IntoIterator+ 'static,
+<Input as IntoIterator>::Item: Eq,
     Error: Clone + 'static,
     Output: Clone ,
     State: Clone + 'static,
@@ -84,8 +84,8 @@ where
 
 impl<Input, Output, Error, State,P> ForwardRef< Input, Output, State, Error,P>
 where
-    Input: Clone +  Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone +  IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error: Clone ,
     Output: Clone ,
     State: Clone ,
@@ -114,8 +114,8 @@ P : for<'a >Parse<'a, Input, Output, State, Error>
 
 impl<Input, Output, Error, State,P> Default for ForwardRef< Input, Output, State, Error,P>
 where
-    Input:Clone  + Iterator+ 'static,
-<Input as Iterator>::Item: Eq,
+    Input:Clone  + IntoIterator+ 'static,
+<Input as IntoIterator>::Item: Eq,
     Error: Clone + 'static,
     Output: Clone ,
     State: Clone + 'static,
@@ -140,8 +140,8 @@ impl< Input, State, Output, Error,P> Parse<'static, Input, State, Output, Error>
     for
     ForwardRef< Input, State, Output, Error,P>
 where
-    Input: Clone  + Iterator ,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone  + IntoIterator ,
+    <Input as IntoIterator>::Item: Eq,
     Error: Clone + 'static,
     State: Clone + 'static,
     Output: Clone  + 'static,
@@ -158,12 +158,44 @@ P : Parse<'static, Input,  State,Output, Error> + Fn(Input, State)->Result<(Outp
     }
 }
 
+pub fn match_while<'a, Input, State, F,P>(
+    predicate: P,
+    state_transformer: F,
+) -> Parser<'a, Input, State,  std::iter::Take<Input>, String>
+where
+    Input: Debug + Clone + 'a + Iterator ,
+<Input as Iterator>::Item: Eq,
+    State: Clone,
+    F: Fn(<Input as Iterator>::Item,State) -> State + 'a,
+    P: Fn(&<Input as Iterator>::Item) -> bool +'a,{
+    Parser::new(move |mut input: Input, mut state: State| {
+        let orig = input.clone();
+        let mut c = 0;
+        loop{
+        match input.next() {
+            Some(x) => if !predicate(&x){
+                break;
+            }
+            else{
+                c += 1;
+                state = state_transformer(x,state)
+            },
+            None => return Err("Predicate failed".into()),
+        }
+        }
+        Ok((orig.take(c), state, input))
+        
+    })
+}
+
+
+
 pub fn match_literal<'a, Input, State, F>(
     to_match: Input,
     state_transformer: F,
 ) -> Parser<'a, Input, State, Input, String>
 where
-    Input: Debug + Clone + 'a + Iterator,
+    Input: Debug + Clone + 'a + Iterator ,
     <Input as Iterator>::Item: Eq,
     State: Clone,
     F: Fn(State) -> State + 'a,
@@ -199,14 +231,16 @@ where
 
 pub fn match_anything<'a, Input, State, F>(
     transition_fun: F,
-) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
+) -> Parser<'a, Input, State, <Input as IntoIterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Eq,
     State: Clone,
     F: Fn(State) -> State + 'a,
 {
-    Parser::new(move |mut input: Input, state: State| match input.next() {
+    Parser::new(move |mut input: Input, state: State|
+
+                match input.next() {
         Some(x) => Ok((x, transition_fun(state), input)),
         None => Err(format!(
             "Parser Combinator : match_anything failed. expected input got {:?}",
@@ -217,8 +251,8 @@ where
 
 //we need to deprecate this
 pub fn match_character<'a, Input, State>(
-    character: <Input as Iterator>::Item,
-) -> Parser<'a, Input, State, <Input as Iterator>::Item, String>
+    character: <Input as IntoIterator>::Item,
+) -> Parser<'a, Input, State, <Input as IntoIterator>::Item, String>
 where
     Input: Debug + Clone + 'a + Iterator,
     <Input as Iterator>::Item: Debug + Eq,

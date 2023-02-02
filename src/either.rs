@@ -7,8 +7,8 @@ use crate::{Parse, ParseResult};
 #[derive(Clone)]
 pub struct EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Iterator + 'a,
-    <Input as Iterator>::Item: Eq,
+    Input: IntoIterator + 'a,
+    <Input as IntoIterator>::Item: Eq,
 {
     parser: Rc<dyn Parse<'a, Input, State, Either<T1, T2>, (Error1, Error2)> + 'a>,
 }
@@ -16,8 +16,8 @@ where
 impl<'a, Input, State, T1, T2, Error1, Error2>
     EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
     Error1: Clone + 'a,
@@ -50,8 +50,8 @@ where
         right_transformation: fn(T2) -> Output,
     ) -> Parser<'a, Input, State, Output, (Error1, Error2)>
     where
-        <Input as Iterator>::Item: Eq,
-        Input: 'a + Clone + Iterator,
+        <Input as IntoIterator>::Item: Eq,
+        Input: 'a + Clone + IntoIterator,
         Output: 'a,
         State: 'a,
     {
@@ -63,8 +63,8 @@ impl<'a, Input, State, T1, T2, Error1, Error2>
     Parse<'a, Input, State, Either<T1, T2>, (Error1, Error2)>
     for EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     Error1: Clone + 'a,
     Error2: Clone + 'a,
     State: Clone,
@@ -153,8 +153,8 @@ impl<T> Either<T, T> {
 impl<'a, Input, State, T1, T2, Error1, Error2> Debug
     for EitherParser<'a, Input, State, T1, T2, Error1, Error2>
 where
-    Input: Clone + 'a + Iterator,
-    <Input as Iterator>::Item: Eq,
+    Input: Clone + 'a + IntoIterator,
+    <Input as IntoIterator>::Item: Eq,
     T1: 'a,
     T2: 'a,
 {
