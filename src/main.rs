@@ -1,4 +1,3 @@
-#![feature(unboxed_closures)]
 use std::str::Chars;
 
 use parser_combinator::pair::Pair;

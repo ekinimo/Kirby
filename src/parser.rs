@@ -269,7 +269,7 @@ where
 mod tests {
     use super::*;
     use crate::parser::{match_character, match_literal};
-
+    use crate::Either::{*};
     use super::ForwardRef;
     fn id<T>(x: T) -> T {
         x
@@ -520,6 +520,129 @@ mod tests {
             _ => panic!("failed: {:?}", result),
         }
     }
+
+
+
+    #[test]
+    fn bench_forward_ref() {
+
+        fn increment(x: i32) -> i32 {
+            /*println!("hello {x}");*/
+            x + 1
+        }
+
+        use std::str::Chars;
+
+        let parse_digit = vec![
+            Parser::new(match_literal("1".chars(), increment)),
+            Parser::new(match_literal("2".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("3".chars(), increment)),
+            Parser::new(match_literal("4".chars(), increment)),
+            Parser::new(match_literal("5".chars(), increment)),
+            Parser::new(match_literal("6".chars(), increment)),
+            Parser::new(match_literal("7".chars(), increment)),
+            Parser::new(match_literal("8".chars(), increment)),
+            Parser::new(match_literal("9".chars(), increment)),
+            Parser::new(match_literal("0".chars(), increment)),
+        ]
+        .iter()
+        .fold(
+            Parser::new(match_literal("0".chars(), increment)),
+            |x: Parser<Chars, i32, Chars, String>, y: &Parser<Chars, i32, Chars, String>| {
+                x.or_else(y.clone()).with_error(|_, _| "error".to_string())
+            },
+        );
+        let parse_digits = parse_digit.clone().one_or_more();
+
+        let parse_natural_numbers = parse_digits.clone().transform(|s| {
+            let mut digits = String::from("");
+            for digit in s {
+                digits.push_str(digit.as_str());
+            }
+            //    println!("digits = {:?}", digits);
+            digits.parse::<i32>().unwrap()
+        });
+
+        let mut expr = ForwardRef::new();
+
+        let factor = match_literal("(".chars(), increment)
+            .triple(expr.clone(), match_literal(")".chars(), increment))
+            .second()
+            .or_else(parse_natural_numbers.clone())
+            .with_error(|(_, _), _| "error".to_string());
+        let term = factor
+            .clone()
+            .pair(
+                match_literal("*".chars(), increment)
+                    .pair(factor.clone())
+                    .second()
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, b| a * b))
+            .with_error(|_, _| "error".to_string());
+        let _top_level = expr
+            .clone()
+            .pair(match_literal(";".chars(), increment))
+            .first()
+            .with_error(|_, _| "error".to_string());
+
+        let expr2:Parser<Chars,i32,i32,String>  = term
+            .clone()
+            .pair(
+                match_literal("+".chars(), increment)
+                    .pair(term.clone())
+                    .zero_or_more(),
+            )
+            .transform(|(x, y)| y.iter().fold(x, |a, (_, b)| a + b))
+            .with_error(|_, _| "error".to_string());
+
+        expr.set_parser(move |i,s| expr2.clone().parse(i, s));
+
+        let _result = expr.parse("1+2*3-5/(5+6)-5-3".chars(), 0);
+
+        }
+
+    #[test]
+    fn separated_by() {
+        let under_test = match_character('1').separated_by(match_character('-'));
+
+        let result = under_test.parse("1".chars(), ());
+
+        match result {
+            Ok((('1', separated), _, rest)) => {
+                assert!(separated.is_empty());
+                assert_eq!("", rest.as_str())
+            }
+            _ => panic!("failed with {:?}", result),
+        }
+
+        let result = under_test.parse("1-1-1-2-3".chars(), ());
+
+        match result {
+            Ok((('1', separated), _, rest)) => {
+                let expected = vec![('-', '1'), ('-', '1')];
+                assert_eq!(expected, separated);
+                assert_eq!("-2-3", rest.as_str())
+            }
+            _ => panic!("failed with {:?}", result),
+        }
+
+        // let result = under_test.parse("abc".chars(), ());
+
+        // match result {
+        //     Err(Either::Left(message)) => {
+        //         assert_eq!("expected '1', got 'a'", message)
+        //     }
+        //     _ => panic!("failed with {:?}", result),
+        // }
+    }
+
+
+
+
+
+
 }
 
 // #[test]
